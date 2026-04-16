@@ -104,10 +104,13 @@ services:
       - "${MAILHOG_UI_PORT:-8025}:8025"
     networks:
       - academic_net
-    environment:
-      - MH_AUTH_FILE=/mailhog.auth
+    #environment:
+    #  - MH_AUTH_FILE=/mailhog.auth
+    #volumes:
+    #  - ./mailhog.auth:/mailhog.auth
+    command: ["-auth-file=/mailhog.auth"]
     volumes:
-      - ./mailhog.auth:/mailhog.auth
+      - ./mailhog.auth:/mailhog.auth:ro   # ro = solo lectura
 volumes:
   n8n_data:
     name: academic_n8n_data
