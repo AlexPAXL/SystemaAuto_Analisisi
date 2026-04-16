@@ -1,0 +1,461 @@
+{
+  "name": "WF4 - Retroalimentacion y Notificaciones",
+  "nodes": [
+    {
+      "id": "n4a",
+      "name": "Webhook Retroalimentacion",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        380
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "feedback",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "n4b",
+      "name": "Validar Feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        380
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF4: Validar formulario de retroalimentación ─────────────────────────\nconst b = $json;\nconst errors = [];\nconst required = ['student_id', 'student_name', 'course_id', 'task_id', 'grade', 'feedback_text'];\nrequired.forEach(f => { if (b[f] === undefined || b[f] === null || b[f] === '') errors.push('Campo requerido: ' + f); });\nif (b.grade !== undefined) {\n  const g = Number(b.grade);\n  if (isNaN(g) || g < 0 || g > 100) errors.push('Nota debe estar entre 0 y 100 (recibido: ' + b.grade + ')');\n}\nif (errors.length > 0) return [{ json: { valid: false, errors, status: 'error' } }];\n\nconst grade = Number(b.grade);\nconst needsAlert = grade < 60;\nconst feedbackType = grade >= 80 ? 'positive' : grade >= 60 ? 'neutral' : 'negative';\nconst studentEmail = b.student_email || ('estudiante.' + String(b.student_id).toLowerCase() + '@academico.local');\nconst safe = s => String(s||'').replace(/'/g,\"''\");\n\nconst sql_feedback =\n  \"INSERT INTO feedback (student_id, student_name, course_id, task_id, grade, feedback_text, feedback_type, sent_notification) VALUES (\" +\n  \"'\" + safe(b.student_id) + \"','\" + safe(b.student_name) + \"','\" + safe(b.course_id) + \"','\" + safe(b.task_id) + \"',\" +\n  grade + \",'\" + safe(b.feedback_text) + \"','\" + feedbackType + \"',\" + (needsAlert ? 'TRUE' : 'FALSE') + \") RETURNING id\";\n\nreturn [{ json: { ...b, grade, needsAlert, feedbackType, studentEmail, valid: true, sql_feedback } }];"
+      }
+    },
+    {
+      "id": "n4c",
+      "name": "¿Feedback Válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        380
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond4a",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n4d",
+      "name": "Guardar Feedback BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        960,
+        260
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_feedback }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "n4e",
+      "name": "¿Nota Baja (<60)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        260
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond4b",
+              "leftValue": "={{ $json.needsAlert }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n4f",
+      "name": "Preparar Email Alerta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF4: Preparar email de retroalimentación ─────────────────────────────\nconst j = $json;\nconst grade = Number(j.grade);\nconst isLow = grade < 60;\nconst hdrColor = isLow ? '#dc2626' : grade < 80 ? '#d97706' : '#16a34a';\nconst icon = isLow ? '⚠️' : grade < 80 ? '📝' : '🎉';\nconst gradeLabel = isLow ? 'Reprobado' : grade < 80 ? 'Aprobado' : 'Excelente';\n\nconst emailSubject = icon + ' Retroalimentación: ' + j.task_name_label || j.task_id + ' (' + grade + '/100)';\nconst emailBody = `\n<div style=\"font-family:'Segoe UI',Arial,sans-serif;max-width:580px;margin:0 auto\">\n  <div style=\"background:linear-gradient(135deg,${hdrColor},${hdrColor}99);color:#fff;padding:20px 24px;border-radius:10px 10px 0 0\">\n    <h2 style=\"margin:0\">${icon} Retroalimentación Académica</h2>\n    <p style=\"margin:6px 0 0;opacity:.9\">Tarea: ${j.task_id} — Curso: ${j.course_id}</p>\n  </div>\n  <div style=\"background:#fff;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px\">\n    <p>Estimado/a <strong>${j.student_name}</strong>,</p>\n    <p style=\"margin-top:12px\">Hemos registrado su calificación y retroalimentación:</p>\n    <div style=\"background:#f8fafc;border-radius:8px;padding:16px;margin:16px 0;text-align:center\">\n      <div style=\"font-size:3em;font-weight:800;color:${hdrColor}\">${grade}<span style=\"font-size:.5em;color:#64748b\">/100</span></div>\n      <div style=\"color:${hdrColor};font-weight:600;font-size:14px\">${gradeLabel}</div>\n    </div>\n    <div style=\"background:#f8fafc;border-radius:8px;padding:16px;border-left:4px solid ${hdrColor};margin-bottom:16px\">\n      <p style=\"font-weight:600;color:#374151;margin-bottom:6px\">💬 Comentarios del docente:</p>\n      <p style=\"color:#4b5563;font-size:14px\">${j.feedback_text}</p>\n    </div>\n    ${isLow ? '<p style=\"color:#dc2626;font-size:13px;font-weight:600\">⚠️ Su nota está por debajo del mínimo aprobatorio (60). Por favor comuníquese con su docente para asesoría académica.</p>' : ''}\n  </div>\n</div>`;\n\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst notif_sql = \"INSERT INTO notifications_log (student_id, notification_type, message, status) VALUES ('\" +\n  safe(j.student_id) + \"', 'feedback_alert', 'Retroalimentacion enviada. Nota: \" + grade + \"/100 (\" + gradeLabel + \")', 'sent')\";\n\nreturn [{ json: { ...j, emailSubject, emailBody, notif_sql } }];"
+      }
+    },
+    {
+      "id": "n4g",
+      "name": "Enviar Email Alerta",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1680,
+        160
+      ],
+      "parameters": {
+        "fromEmail": "sistema@academico.local",
+        "toEmail": "={{ $json.studentEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "html",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP Mailhog Local"
+        }
+      }
+    },
+    {
+      "id": "n4h",
+      "name": "Log Notificación BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        160
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.notif_sql }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "n4i",
+      "name": "Preparar Email Positivo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        380
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF4: Preparar email de retroalimentación ─────────────────────────────\nconst j = $json;\nconst grade = Number(j.grade);\nconst isLow = grade < 60;\nconst hdrColor = isLow ? '#dc2626' : grade < 80 ? '#d97706' : '#16a34a';\nconst icon = isLow ? '⚠️' : grade < 80 ? '📝' : '🎉';\nconst gradeLabel = isLow ? 'Reprobado' : grade < 80 ? 'Aprobado' : 'Excelente';\n\nconst emailSubject = icon + ' Retroalimentación: ' + j.task_name_label || j.task_id + ' (' + grade + '/100)';\nconst emailBody = `\n<div style=\"font-family:'Segoe UI',Arial,sans-serif;max-width:580px;margin:0 auto\">\n  <div style=\"background:linear-gradient(135deg,${hdrColor},${hdrColor}99);color:#fff;padding:20px 24px;border-radius:10px 10px 0 0\">\n    <h2 style=\"margin:0\">${icon} Retroalimentación Académica</h2>\n    <p style=\"margin:6px 0 0;opacity:.9\">Tarea: ${j.task_id} — Curso: ${j.course_id}</p>\n  </div>\n  <div style=\"background:#fff;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px\">\n    <p>Estimado/a <strong>${j.student_name}</strong>,</p>\n    <p style=\"margin-top:12px\">Hemos registrado su calificación y retroalimentación:</p>\n    <div style=\"background:#f8fafc;border-radius:8px;padding:16px;margin:16px 0;text-align:center\">\n      <div style=\"font-size:3em;font-weight:800;color:${hdrColor}\">${grade}<span style=\"font-size:.5em;color:#64748b\">/100</span></div>\n      <div style=\"color:${hdrColor};font-weight:600;font-size:14px\">${gradeLabel}</div>\n    </div>\n    <div style=\"background:#f8fafc;border-radius:8px;padding:16px;border-left:4px solid ${hdrColor};margin-bottom:16px\">\n      <p style=\"font-weight:600;color:#374151;margin-bottom:6px\">💬 Comentarios del docente:</p>\n      <p style=\"color:#4b5563;font-size:14px\">${j.feedback_text}</p>\n    </div>\n    ${isLow ? '<p style=\"color:#dc2626;font-size:13px;font-weight:600\">⚠️ Su nota está por debajo del mínimo aprobatorio (60). Por favor comuníquese con su docente para asesoría académica.</p>' : ''}\n  </div>\n</div>`;\n\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst notif_sql = \"INSERT INTO notifications_log (student_id, notification_type, message, status) VALUES ('\" +\n  safe(j.student_id) + \"', 'feedback_alert', 'Retroalimentacion enviada. Nota: \" + grade + \"/100 (\" + gradeLabel + \")', 'sent')\";\n\nreturn [{ json: { ...j, emailSubject, emailBody, notif_sql } }];"
+      }
+    },
+    {
+      "id": "n4j",
+      "name": "Enviar Email Feedback",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1680,
+        380
+      ],
+      "parameters": {
+        "fromEmail": "sistema@academico.local",
+        "toEmail": "={{ $json.studentEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "html",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP Mailhog Local"
+        }
+      }
+    },
+    {
+      "id": "n4k",
+      "name": "Set Error Validación",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "f2",
+              "name": "status",
+              "value": "validation_error",
+              "type": "string"
+            },
+            {
+              "id": "f3",
+              "name": "errors",
+              "value": "={{ $json.errors }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n4l",
+      "name": "Preparar Respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF4: Construir respuesta del webhook ──────────────────────────────────\nconst j = $json;\nreturn [{\n  json: {\n    success: true,\n    student_id: j.student_id,\n    task_id: j.task_id,\n    grade: j.grade,\n    feedbackType: j.feedbackType,\n    alertSent: j.needsAlert || false,\n    message: 'Retroalimentación registrada correctamente' + (j.needsAlert ? ' y alerta enviada al estudiante.' : '.')\n  }\n}];"
+      }
+    },
+    {
+      "id": "n4m",
+      "name": "No-Op Control Flujo",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "n4n",
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        380
+      ],
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Retroalimentacion": {
+      "main": [
+        [
+          {
+            "node": "Validar Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Feedback": {
+      "main": [
+        [
+          {
+            "node": "¿Feedback Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Feedback Válido?": {
+      "main": [
+        [
+          {
+            "node": "Guardar Feedback BD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Error Validación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Feedback BD": {
+      "main": [
+        [
+          {
+            "node": "¿Nota Baja (<60)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Nota Baja (<60)?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Email Alerta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Email Positivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Email Alerta": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Alerta": {
+      "main": [
+        [
+          {
+            "node": "Log Notificación BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Notificación BD": {
+      "main": [
+        [
+          {
+            "node": "Preparar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Email Positivo": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Feedback": {
+      "main": [
+        [
+          {
+            "node": "Preparar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Error Validación": {
+      "main": [
+        [
+          {
+            "node": "No-Op Control Flujo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Respuesta": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No-Op Control Flujo": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-004",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

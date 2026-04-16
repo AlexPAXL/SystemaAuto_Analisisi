@@ -1,0 +1,177 @@
+{
+  "name": "WF6 - Dashboard API (Web)",
+  "nodes": [
+    {
+      "id": "w6a",
+      "name": "GET Dashboard",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        360
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api/dashboard",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "w6b",
+      "name": "PG Stats",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        480,
+        360
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT (SELECT COUNT(*) FROM attendance) as att_total,(SELECT COUNT(*) FROM attendance WHERE status='present') as att_present,(SELECT COUNT(*) FROM attendance WHERE status='absent') as att_absent,(SELECT COUNT(*) FROM attendance WHERE status='late') as att_late,(SELECT ROUND(COUNT(*) FILTER (WHERE status='present')*100.0/NULLIF(COUNT(*),0),1) FROM attendance) as att_rate,(SELECT COUNT(*) FROM task_submissions) as sub_total,(SELECT COUNT(*) FROM task_submissions WHERE status='on_time') as sub_on_time,(SELECT COUNT(*) FROM task_submissions WHERE is_late=TRUE) as sub_late,(SELECT COUNT(*) FROM task_submissions WHERE status='missing') as sub_missing,(SELECT COUNT(*) FROM feedback WHERE grade IS NOT NULL) as fb_total,(SELECT COALESCE(ROUND(AVG(grade),1),0) FROM feedback WHERE grade IS NOT NULL) as fb_avg,(SELECT COUNT(*) FROM feedback WHERE grade >= 60) as fb_passing,(SELECT COUNT(*) FROM feedback WHERE grade < 60) as fb_failing,(SELECT COUNT(*) FROM error_logs) as err_total,(SELECT COUNT(*) FROM reports) as rpt_total,(SELECT COUNT(*) FROM notifications_log) as notif_total",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "w6c",
+      "name": "PG Errores Recientes",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        720,
+        360
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT workflow_name, node_name, LEFT(error_message,120) as error_message, TO_CHAR(created_at,'YYYY-MM-DD HH24:MI') as created_at FROM error_logs ORDER BY created_at DESC LIMIT 5",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "w6d",
+      "name": "PG Entregas Recientes",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        960,
+        360
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT student_id, student_name, task_id, task_name, status, is_late, TO_CHAR(COALESCE(submission_date, created_at),'YYYY-MM-DD HH24:MI') as fecha FROM task_submissions ORDER BY created_at DESC LIMIT 8",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "w6e",
+      "name": "Formatear Respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF6: Combinar stats + errores recientes + entregas recientes ──────────\nconst stats   = $('PG Stats').first().json;\nconst errRows = $('PG Errores Recientes').all().map(i => i.json);\nconst subRows = $input.all().map(i => i.json);\n\nconst num = v => Number(v) || 0;\n\nreturn [{\n  json: {\n    ok: true,\n    timestamp: new Date().toISOString(),\n    attendance: {\n      total: num(stats.att_total), present: num(stats.att_present),\n      absent: num(stats.att_absent), late: num(stats.att_late),\n      rate: num(stats.att_rate)\n    },\n    submissions: {\n      total: num(stats.sub_total), on_time: num(stats.sub_on_time),\n      late: num(stats.sub_late), missing: num(stats.sub_missing)\n    },\n    feedback: {\n      total: num(stats.fb_total), avg_grade: num(stats.fb_avg),\n      passing: num(stats.fb_passing), failing: num(stats.fb_failing)\n    },\n    system: {\n      errors: num(stats.err_total), reports: num(stats.rpt_total),\n      notifications: num(stats.notif_total)\n    },\n    recent_errors: errRows,\n    recent_submissions: subRows\n  }\n}];"
+      }
+    },
+    {
+      "id": "w6f",
+      "name": "Responder Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        360
+      ],
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "GET Dashboard": {
+      "main": [
+        [
+          {
+            "node": "PG Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Stats": {
+      "main": [
+        [
+          {
+            "node": "PG Errores Recientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Errores Recientes": {
+      "main": [
+        [
+          {
+            "node": "PG Entregas Recientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Entregas Recientes": {
+      "main": [
+        [
+          {
+            "node": "Formatear Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Respuesta": {
+      "main": [
+        [
+          {
+            "node": "Responder Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-006",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

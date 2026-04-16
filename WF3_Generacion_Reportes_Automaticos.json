@@ -1,0 +1,429 @@
+{
+  "name": "WF3 - Generacion de Reportes Automaticos",
+  "nodes": [
+    {
+      "id": "n3a",
+      "name": "Trigger Manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        380
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "n3b",
+      "name": "Trigger Semanal",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        520
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n3c",
+      "name": "Inicializar Contexto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        380
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF3: Inicializar contexto del reporte ────────────────────────────────\nconst now = new Date();\nconst dateStr = now.toISOString().split('T')[0];\nreturn [{ json: { reportDate: dateStr, generatedAt: now.toISOString(), weekNumber: Math.ceil(now.getDate() / 7) } }];"
+      }
+    },
+    {
+      "id": "n3d",
+      "name": "PG Stats Asistencia",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        720,
+        280
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT 'attendance' AS data_type, course_id, COUNT(*) AS total, SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS present_count, SUM(CASE WHEN status='absent'  THEN 1 ELSE 0 END) AS absent_count, SUM(CASE WHEN status='late'    THEN 1 ELSE 0 END) AS late_count, ROUND(SUM(CASE WHEN status='present' THEN 1 ELSE 0 END)*100.0/NULLIF(COUNT(*),0),1) AS rate FROM attendance GROUP BY course_id ORDER BY course_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "n3e",
+      "name": "PG Stats Entregas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        720,
+        480
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT 'submission' AS data_type, task_id, task_name, COUNT(*) AS total_submissions, SUM(CASE WHEN is_late THEN 1 ELSE 0 END) AS late_count, SUM(CASE WHEN status='missing' THEN 1 ELSE 0 END) AS missing_count FROM task_submissions GROUP BY task_id, task_name ORDER BY task_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "n3f",
+      "name": "Merge Datos",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        960,
+        380
+      ],
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      }
+    },
+    {
+      "id": "n3g",
+      "name": "Generar Reporte HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        380
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF3: Generar Reporte HTML Combinado ──────────────────────────────────\nconst allItems = $input.all();\nconst attendanceRows = allItems.filter(i => i.json.data_type === 'attendance').map(i => i.json);\nconst submissionRows  = allItems.filter(i => i.json.data_type === 'submission').map(i => i.json);\nconst now = new Date().toLocaleString('es-GT', { timeZone: 'America/Guatemala' });\nconst dateStr = new Date().toISOString().split('T')[0];\nconst reportName = 'full_report_' + dateStr + '.html';\nconst reportFilePath = '/data/shared/output/' + reportName;\n\nconst attTable = attendanceRows.length === 0\n  ? '<tr><td colspan=\"6\" style=\"text-align:center;color:#94a3b8\">Sin datos de asistencia</td></tr>'\n  : attendanceRows.map(r => {\n    const rate = Number(r.rate || 0);\n    const rateColor = rate >= 80 ? '#16a34a' : rate >= 60 ? '#d97706' : '#dc2626';\n    return '<tr><td><strong>' + r.course_id + '</strong></td><td>' + r.total + '</td>' +\n      '<td style=\"color:#16a34a\">' + r.present_count + '</td>' +\n      '<td style=\"color:#dc2626\">' + r.absent_count + '</td>' +\n      '<td style=\"color:#d97706\">' + r.late_count + '</td>' +\n      '<td><span style=\"background:' + rateColor + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:12px\">' + rate + '%</span></td></tr>';\n  }).join('');\n\nconst subTable = submissionRows.length === 0\n  ? '<tr><td colspan=\"5\" style=\"text-align:center;color:#94a3b8\">Sin datos de entregas</td></tr>'\n  : submissionRows.map(r => {\n    const lateRate = r.total_submissions > 0 ? Math.round((r.late_count / r.total_submissions) * 100) : 0;\n    const lateColor = lateRate <= 10 ? '#16a34a' : lateRate <= 30 ? '#d97706' : '#dc2626';\n    return '<tr><td><strong>' + r.task_id + '</strong></td><td>' + (r.task_name||'—') + '</td>' +\n      '<td>' + r.total_submissions + '</td>' +\n      '<td style=\"color:#dc2626\">' + r.late_count + '</td>' +\n      '<td><span style=\"background:' + lateColor + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:12px\">' + lateRate + '% tarde</span></td></tr>';\n  }).join('');\n\nconst html = `<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\">\n<title>Reporte Académico Semanal ${dateStr}</title>\n<style>*{box-sizing:border-box;margin:0;padding:0}\nbody{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1e293b;padding:24px}\n.hdr{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;padding:24px;border-radius:12px;margin-bottom:20px}\n.hdr h1{font-size:20px}.hdr p{opacity:.85;font-size:13px;margin-top:6px}\n.section{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:20px}\n.sec-hdr{background:#f8fafc;padding:14px 18px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#334155;font-size:15px}\ntable{width:100%;border-collapse:collapse}\nth{background:#1e40af;color:#fff;padding:10px;text-align:left;font-size:13px}\ntd{padding:10px;border-bottom:1px solid #f1f5f9;font-size:13px}tr:last-child td{border:none}\n.footer{text-align:center;color:#94a3b8;font-size:12px;margin-top:16px}</style></head>\n<body>\n<div class=\"hdr\">\n  <h1>📊 Reporte Académico Semanal</h1>\n  <p>Generado: ${now} &nbsp;|&nbsp; Periodo: ${dateStr}</p>\n</div>\n<div class=\"section\">\n  <div class=\"sec-hdr\">📋 Resumen de Asistencia por Curso</div>\n  <table>\n    <thead><tr><th>Curso</th><th>Total</th><th>Presentes</th><th>Ausentes</th><th>Tardanzas</th><th>Tasa</th></tr></thead>\n    <tbody>${attTable}</tbody>\n  </table>\n</div>\n<div class=\"section\">\n  <div class=\"sec-hdr\">📁 Resumen de Entregas por Tarea</div>\n  <table>\n    <thead><tr><th>ID Tarea</th><th>Nombre</th><th>Entregas</th><th>Tardías</th><th>% Tardía</th></tr></thead>\n    <tbody>${subTable}</tbody>\n  </table>\n</div>\n<div class=\"footer\">Sistema Automatización Académica — n8n | ${dateStr}</div>\n</body></html>`;\n\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst rpt_sql = \"INSERT INTO reports (report_type, file_path, status, records_count) VALUES ('weekly_full', '\" +\n  safe(reportFilePath) + \"', 'generated', \" + (attendanceRows.length + submissionRows.length) + \")\";\n\nconst emailSubject = '📊 Reporte Académico Semanal — ' + dateStr;\nconst emailBody = '<div style=\"font-family:Arial,sans-serif;max-width:560px\">' +\n  '<div style=\"background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;padding:20px;border-radius:10px 10px 0 0\"><h2 style=\"margin:0\">📊 Reporte Semanal Disponible</h2></div>' +\n  '<div style=\"background:#fff;padding:20px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px\">' +\n  '<p>El reporte académico semanal ha sido generado exitosamente.</p>' +\n  '<ul style=\"margin:12px 0;padding-left:20px\"><li>Cursos analizados: ' + attendanceRows.length + '</li>' +\n  '<li>Tareas analizadas: ' + submissionRows.length + '</li></ul>' +\n  '<p style=\"color:#6b7280;font-size:13px\">El archivo se encuentra en: <code>' + reportFilePath + '</code></p>' +\n  '</div></div>';\n\nreturn [{ json: { reportName, reportFilePath, emailSubject, emailBody, rpt_sql, generatedAt: now, totalCourses: attendanceRows.length, totalTasks: submissionRows.length },\n  binary: { report: { data: Buffer.from(html).toString('base64'), mimeType:'text/html', fileName: reportName, fileExtension:'html' } } }];"
+      }
+    },
+    {
+      "id": "n3h",
+      "name": "Guardar Reporte HTML",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        380
+      ],
+      "parameters": {
+        "fileName": "={{ $json.reportFilePath }}",
+        "dataPropertyName": "report",
+        "options": {}
+      }
+    },
+    {
+      "id": "n3i",
+      "name": "Registrar Reporte BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        380
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.rpt_sql }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "n3j",
+      "name": "Enviar Reporte por Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1920,
+        380
+      ],
+      "parameters": {
+        "fromEmail": "sistema@academico.local",
+        "toEmail": "profesor@academico.local",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "html",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP Mailhog Local"
+        }
+      }
+    },
+    {
+      "id": "n3k",
+      "name": "¿Datos Encontrados?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        380
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond3",
+              "leftValue": "={{ $json.totalCourses + $json.totalTasks }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n3l",
+      "name": "✅ Reporte Generado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2400,
+        300
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "r2",
+              "name": "message",
+              "value": "={{ 'Reporte semanal generado: ' + $json.reportName }}",
+              "type": "string"
+            },
+            {
+              "id": "r3",
+              "name": "totalCourses",
+              "value": "={{ $json.totalCourses }}",
+              "type": "number"
+            },
+            {
+              "id": "r4",
+              "name": "totalTasks",
+              "value": "={{ $json.totalTasks }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n3m",
+      "name": "⚠️ Sin Datos",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2400,
+        500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "status",
+              "value": "warning",
+              "type": "string"
+            },
+            {
+              "id": "w2",
+              "name": "message",
+              "value": "Reporte generado pero sin datos en BD aún. Ejecute WF1 y WF2 primero.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Trigger Manual": {
+      "main": [
+        [
+          {
+            "node": "Inicializar Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Semanal": {
+      "main": [
+        [
+          {
+            "node": "Inicializar Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inicializar Contexto": {
+      "main": [
+        [
+          {
+            "node": "PG Stats Asistencia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "PG Stats Entregas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Stats Asistencia": {
+      "main": [
+        [
+          {
+            "node": "Merge Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Stats Entregas": {
+      "main": [
+        [
+          {
+            "node": "Merge Datos",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Datos": {
+      "main": [
+        [
+          {
+            "node": "Generar Reporte HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Reporte HTML": {
+      "main": [
+        [
+          {
+            "node": "Guardar Reporte HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Reporte HTML": {
+      "main": [
+        [
+          {
+            "node": "Registrar Reporte BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Reporte BD": {
+      "main": [
+        [
+          {
+            "node": "Enviar Reporte por Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Reporte por Email": {
+      "main": [
+        [
+          {
+            "node": "¿Datos Encontrados?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos Encontrados?": {
+      "main": [
+        [
+          {
+            "node": "✅ Reporte Generado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⚠️ Sin Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-003",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

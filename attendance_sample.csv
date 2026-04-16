@@ -1,0 +1,16 @@
+student_id,student_name,course_id,date,status
+STU001,María García,CS101,2024-01-15,present
+STU002,Carlos López,CS101,2024-01-15,absent
+STU003,Ana Martínez,CS101,2024-01-15,late
+STU004,Pedro Rodríguez,CS101,2024-01-15,present
+STU005,Laura Pérez,CS101,2024-01-15,excused
+STU006,Roberto Sánchez,CS102,2024-01-15,present
+STU007,Sofía González,CS102,2024-01-15,present
+STU008,Diego Torres,CS102,2024-01-15,absent
+STU009,Valentina Flores,CS102,2024-01-15,late
+STU010,Andrés Ramírez,CS103,2024-01-15,present
+STU011,Camila Vargas,CS103,2024-01-15,present
+STU012,Javier Morales,CS103,2024-01-15,absent
+STU013,Isabella Castillo,CS101,2024-01-16,present
+STU014,Sebastián Herrera,CS101,2024-01-16,late
+STU015,Daniela Jiménez,CS102,2024-01-16,present

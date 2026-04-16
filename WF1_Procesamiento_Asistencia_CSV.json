@@ -1,0 +1,464 @@
+{
+  "name": "WF1 - Procesamiento de Asistencia CSV",
+  "nodes": [
+    {
+      "id": "n1a",
+      "name": "Trigger Manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        380
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "n1b",
+      "name": "Trigger Horario Diario",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        520
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n1c",
+      "name": "Leer Archivo CSV",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        480,
+        380
+      ],
+      "parameters": {
+        "filePath": "/data/shared/input/attendance_sample.csv"
+      }
+    },
+    {
+      "id": "n1d",
+      "name": "Parsear y Validar CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        380
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF1: Parsear y Validar CSV desde binario ──────────────────────────────\nconst binaryData = $input.first().binary;\nif (!binaryData || !binaryData.data) {\n  return [{ json: { isValid: false, errors: ['No se encontró archivo CSV binario'], records: [], total: 0 } }];\n}\nconst csvContent = Buffer.from(binaryData.data.data, 'base64').toString('utf-8');\nconst allLines = csvContent.trim().split('\\n').filter(l => l.trim());\nif (allLines.length < 2) {\n  return [{ json: { isValid: false, errors: ['CSV vacío o sin datos'], records: [], total: 0 } }];\n}\nconst headers = allLines[0].split(',').map(h => h.trim().replace(/^\"|\"$/g, '').toLowerCase());\nconst required = ['student_id', 'student_name', 'course_id', 'date', 'status'];\nconst missing = required.filter(f => !headers.includes(f));\nif (missing.length > 0) {\n  return [{ json: { isValid: false, errors: ['Campos faltantes: ' + missing.join(', ')], records: [], total: 0 } }];\n}\nconst validStatuses = ['present', 'absent', 'late', 'excused'];\nconst records = [], errors = [];\nfor (let i = 1; i < allLines.length; i++) {\n  const values = allLines[i].split(',').map(v => v.trim().replace(/^\"|\"$/g, ''));\n  const row = {};\n  headers.forEach((h, idx) => { row[h] = values[idx] !== undefined ? values[idx] : ''; });\n  const errs = [];\n  if (!row.student_id)   errs.push('Fila ' + (i+1) + ': student_id vacío');\n  if (!row.student_name) errs.push('Fila ' + (i+1) + ': student_name vacío');\n  if (!row.course_id)    errs.push('Fila ' + (i+1) + ': course_id vacío');\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(row.date)) errs.push('Fila ' + (i+1) + ': fecha inválida (' + row.date + ')');\n  if (!validStatuses.includes(row.status)) errs.push('Fila ' + (i+1) + ': status inválido (' + row.status + ')');\n  if (errs.length > 0) errors.push(...errs);\n  else records.push(row);\n}\nreturn [{ json: { isValid: errors.length === 0 && records.length > 0, errors, records, total: records.length, errorCount: errors.length, processedAt: new Date().toISOString() } }];"
+      }
+    },
+    {
+      "id": "n1e",
+      "name": "¿Datos Válidos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        960,
+        380
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n1f",
+      "name": "Construir INSERT SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF1: Construir INSERT masivo ──────────────────────────────────────────\nconst { records } = $json;\nif (!records || records.length === 0) {\n  return [{ json: { ...$json, sql_query: null, insertCount: 0 } }];\n}\nconst safe = s => String(s || '').replace(/'/g, \"''\");\nconst valueRows = records.map(r =>\n  \"('\" + safe(r.student_id) + \"','\" + safe(r.student_name) + \"','\" +\n  safe(r.course_id) + \"','\" + safe(r.date) + \"','\" + safe(r.status) + \"')\"\n);\nconst sql_query = 'INSERT INTO attendance (student_id, student_name, course_id, date, status) VALUES\\n' +\n  valueRows.join(',\\n') + '\\nON CONFLICT DO NOTHING';\nreturn [{ json: { ...$json, sql_query, insertCount: records.length } }];"
+      }
+    },
+    {
+      "id": "n1g",
+      "name": "Insertar Asistencia BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        260
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "n1h",
+      "name": "Generar Reporte HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF1: Generar Reporte HTML de Asistencia ───────────────────────────────\nconst data = $input.first().json;\nconst records = data.records || [];\nconst now = new Date().toLocaleString('es-GT', { timeZone: 'America/Guatemala' });\nconst dateStr = new Date().toISOString().split('T')[0];\nconst reportName = 'attendance_report_' + dateStr + '.html';\nconst reportFilePath = '/data/shared/output/' + reportName;\nconst sColors = { present:'#16a34a', absent:'#dc2626', late:'#d97706', excused:'#2563eb' };\nconst sLabels = { present:'Presente', absent:'Ausente', late:'Tardanza', excused:'Excusado' };\nconst tableRows = records.map((r, i) =>\n  '<tr><td>' + (i+1) + '</td><td><code>' + r.student_id + '</code></td><td>' + r.student_name +\n  '</td><td>' + r.course_id + '</td><td>' + r.date +\n  '</td><td><span style=\"background:' + (sColors[r.status]||'#6b7280') + ';color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600\">' +\n  (sLabels[r.status]||r.status) + '</span></td></tr>'\n).join('\\n');\nconst cnt = { p: records.filter(r=>r.status==='present').length, a: records.filter(r=>r.status==='absent').length,\n              l: records.filter(r=>r.status==='late').length, e: records.filter(r=>r.status==='excused').length };\nconst rate = records.length > 0 ? Math.round((cnt.p/records.length)*100) : 0;\nconst html = `<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"UTF-8\">\n<title>Reporte Asistencia ${dateStr}</title><style>\n*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1e293b;padding:24px}\n.hdr{background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:24px;border-radius:12px;margin-bottom:20px}\n.hdr h1{font-size:20px}.hdr p{opacity:.85;font-size:13px;margin-top:6px}\n.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:20px}\n.card{background:#fff;border-radius:10px;padding:18px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}\n.card h2{font-size:1.8em;font-weight:700}.card p{font-size:12px;color:#64748b;margin-top:4px}\n.tw{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}\ntable{width:100%;border-collapse:collapse}\nth{background:#1e40af;color:#fff;padding:11px 10px;text-align:left;font-size:13px}\ntd{padding:10px;border-bottom:1px solid #e2e8f0;font-size:13px}tr:last-child td{border:none}tr:hover td{background:#f8fafc}\ncode{background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:12px}\n.footer{text-align:center;margin-top:16px;color:#94a3b8;font-size:12px}</style></head>\n<body>\n<div class=\"hdr\"><h1>📋 Reporte de Asistencia Académica</h1>\n<p>Generado: ${now} &nbsp;|&nbsp; Registros: ${records.length} &nbsp;|&nbsp; Tasa de asistencia: ${rate}%</p></div>\n<div class=\"stats\">\n<div class=\"card\"><h2 style=\"color:#16a34a\">${cnt.p}</h2><p>✅ Presentes</p></div>\n<div class=\"card\"><h2 style=\"color:#dc2626\">${cnt.a}</h2><p>❌ Ausentes</p></div>\n<div class=\"card\"><h2 style=\"color:#d97706\">${cnt.l}</h2><p>⏰ Tardanzas</p></div>\n<div class=\"card\"><h2 style=\"color:#2563eb\">${cnt.e}</h2><p>📋 Excusados</p></div>\n<div class=\"card\"><h2 style=\"color:#7c3aed\">${rate}%</h2><p>📊 Asistencia</p></div>\n</div>\n<div class=\"tw\"><table>\n<thead><tr><th>#</th><th>ID</th><th>Nombre</th><th>Curso</th><th>Fecha</th><th>Estado</th></tr></thead>\n<tbody>${tableRows}</tbody></table></div>\n<div class=\"footer\">Sistema Automatización Académica — n8n | ${dateStr}</div>\n</body></html>`;\nreturn [{ json: { ...data, reportName, reportFilePath, generatedAt: now, attendanceRate: rate },\n  binary: { report: { data: Buffer.from(html).toString('base64'), mimeType:'text/html', fileName: reportName, fileExtension:'html' } } }];"
+      }
+    },
+    {
+      "id": "n1i",
+      "name": "Guardar Reporte HTML",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        260
+      ],
+      "parameters": {
+        "fileName": "={{ $json.reportFilePath }}",
+        "dataPropertyName": "report",
+        "options": {}
+      }
+    },
+    {
+      "id": "n1j",
+      "name": "Preparar SQL Reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF1: Preparar SQL para registrar reporte ─────────────────────────────\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst fp = safe($json.reportFilePath || '/data/shared/output/report.html');\nconst sql_query = \"INSERT INTO reports (report_type, file_path, status, records_count) VALUES \" +\n  \"('attendance', '\" + fp + \"', 'generated', \" + ($json.total || 0) + \")\";\nreturn [{ json: { ...$json, sql_query } }];"
+      }
+    },
+    {
+      "id": "n1k",
+      "name": "Registrar Reporte BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        260
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "n1l",
+      "name": "✅ Resultado Exitoso",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2640,
+        260
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "s2",
+              "name": "message",
+              "value": "={{ 'Procesados ' + $json.total + ' registros. Reporte: ' + $json.reportName }}",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "attendanceRate",
+              "value": "={{ $json.attendanceRate }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n1m",
+      "name": "Preparar SQL Error CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF1: Preparar SQL para log de errores ─────────────────────────────────\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst msg = safe(($json.errors||[]).join(' | '));\nconst data = safe(JSON.stringify({ errors: $json.errors, errorCount: $json.errorCount }));\nconst sql_query = \"INSERT INTO error_logs (workflow_name, node_name, error_message, error_data) VALUES \" +\n  \"('WF1 - Asistencia CSV', 'Parseo/Validacion CSV', '\" + msg + \"', '\" + data + \"')\";\nreturn [{ json: { ...$json, sql_query } }];"
+      }
+    },
+    {
+      "id": "n1n",
+      "name": "Registrar Error BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        520
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "n1o",
+      "name": "❌ Resultado Con Errores",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        520
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "e2",
+              "name": "message",
+              "value": "={{ 'Errores en CSV: ' + $json.errorCount + ' error(es). Ver error_logs en BD.' }}",
+              "type": "string"
+            },
+            {
+              "id": "e3",
+              "name": "errors",
+              "value": "={{ $json.errors }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Trigger Manual": {
+      "main": [
+        [
+          {
+            "node": "Leer Archivo CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Horario Diario": {
+      "main": [
+        [
+          {
+            "node": "Leer Archivo CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Archivo CSV": {
+      "main": [
+        [
+          {
+            "node": "Parsear y Validar CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear y Validar CSV": {
+      "main": [
+        [
+          {
+            "node": "¿Datos Válidos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos Válidos?": {
+      "main": [
+        [
+          {
+            "node": "Construir INSERT SQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar SQL Error CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir INSERT SQL": {
+      "main": [
+        [
+          {
+            "node": "Insertar Asistencia BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar Asistencia BD": {
+      "main": [
+        [
+          {
+            "node": "Generar Reporte HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Reporte HTML": {
+      "main": [
+        [
+          {
+            "node": "Guardar Reporte HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Reporte HTML": {
+      "main": [
+        [
+          {
+            "node": "Preparar SQL Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar SQL Reporte": {
+      "main": [
+        [
+          {
+            "node": "Registrar Reporte BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Reporte BD": {
+      "main": [
+        [
+          {
+            "node": "✅ Resultado Exitoso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar SQL Error CSV": {
+      "main": [
+        [
+          {
+            "node": "Registrar Error BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Error BD": {
+      "main": [
+        [
+          {
+            "node": "❌ Resultado Con Errores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-001",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

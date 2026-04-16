@@ -1,0 +1,464 @@
+{
+  "name": "WF2 - Verificacion de Entregas de Tareas",
+  "nodes": [
+    {
+      "id": "n2a",
+      "name": "Webhook Recibir Entrega",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        380
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "task-submission",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "n2b",
+      "name": "Validar Entrega",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        380
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF2: Validar entrega recibida por webhook ─────────────────────────────\nconst body = $json;\nconst errors = [];\nconst required = ['student_id', 'student_name', 'task_id', 'task_name', 'deadline', 'file_name', 'file_extension'];\nrequired.forEach(f => { if (!body[f]) errors.push('Campo requerido: ' + f); });\nif (errors.length > 0) {\n  return [{ json: { valid: false, errors, status: 'validation_error' } }];\n}\nconst allowedExts = ['pdf', 'docx', 'doc', 'zip', 'py', 'java', 'cpp', 'txt', 'xlsx'];\nconst ext = (body.file_extension || '').toLowerCase().replace('.', '');\nconst isValidExt = allowedExts.includes(ext);\nconst deadline = new Date(body.deadline);\nconst now = new Date();\nconst isLate = now > deadline;\nconst minutesLate = isLate ? Math.round((now - deadline) / 60000) : 0;\nlet submissionStatus;\nif (!isValidExt) submissionStatus = 'invalid_format';\nelse if (isLate) submissionStatus = 'late';\nelse submissionStatus = 'on_time';\nconst studentEmail = body.student_email || ('estudiante.' + body.student_id.toLowerCase() + '@academico.local');\nreturn [{\n  json: {\n    ...body,\n    valid: isValidExt,\n    isLate,\n    minutesLate,\n    submissionStatus,\n    submissionDate: now.toISOString(),\n    studentEmail,\n    ext\n  }\n}];"
+      }
+    },
+    {
+      "id": "n2c",
+      "name": "¿Formato Válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        380
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond2a",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n2d",
+      "name": "Construir SQL Entrega",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF2: Construir SQL para insertar entrega ──────────────────────────────\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst j = $json;\nconst sql_query =\n  \"INSERT INTO task_submissions (student_id, student_name, task_id, task_name, submission_date, deadline, status, file_name, file_extension, is_late) VALUES (\" +\n  \"'\" + safe(j.student_id) + \"',\" +\n  \"'\" + safe(j.student_name) + \"',\" +\n  \"'\" + safe(j.task_id) + \"',\" +\n  \"'\" + safe(j.task_name) + \"',\" +\n  \"'\" + safe(j.submissionDate) + \"',\" +\n  \"'\" + safe(j.deadline) + \"',\" +\n  \"'\" + safe(j.submissionStatus) + \"',\" +\n  \"'\" + safe(j.file_name) + \"',\" +\n  \"'\" + safe(j.ext) + \"',\" +\n  (j.isLate ? 'TRUE' : 'FALSE') +\n  \") RETURNING id\";\nreturn [{ json: { ...$json, sql_query } }];"
+      }
+    },
+    {
+      "id": "n2e",
+      "name": "Guardar Entrega BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        260
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "n2f",
+      "name": "¿Entrega Tardía?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        260
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond2b",
+              "leftValue": "={{ $json.isLate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n2g",
+      "name": "Preparar Email Tardanza",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF2: Preparar email de alerta por tardanza ────────────────────────────\nconst j = $json;\nconst hrs  = Math.floor(j.minutesLate / 60);\nconst mins = j.minutesLate % 60;\nconst delay = hrs > 0 ? hrs + 'h ' + mins + 'min' : mins + 'min';\nconst emailSubject = '⚠️ Entrega Tardía: ' + j.task_name + ' — ' + j.student_name;\nconst emailBody = `\n<div style=\"font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto\">\n  <div style=\"background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:20px 24px;border-radius:10px 10px 0 0\">\n    <h2 style=\"margin:0\">⚠️ Alerta: Entrega Tardía</h2>\n  </div>\n  <div style=\"background:#fff;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px\">\n    <p>Estimado/a <strong>${j.student_name}</strong>,</p>\n    <p style=\"margin-top:12px\">Su entrega fue recibida <strong style=\"color:#dc2626\">${delay} después</strong> del plazo establecido.</p>\n    <table style=\"width:100%;border-collapse:collapse;margin:16px 0;font-size:14px\">\n      <tr style=\"background:#fef2f2\"><td style=\"padding:8px 12px;font-weight:600;color:#991b1b\">Tarea:</td><td style=\"padding:8px 12px\">${j.task_name}</td></tr>\n      <tr><td style=\"padding:8px 12px;font-weight:600;color:#991b1b\">Archivo:</td><td style=\"padding:8px 12px\">${j.file_name}.${j.ext}</td></tr>\n      <tr style=\"background:#fef2f2\"><td style=\"padding:8px 12px;font-weight:600;color:#991b1b\">Plazo:</td><td style=\"padding:8px 12px\">${j.deadline}</td></tr>\n      <tr><td style=\"padding:8px 12px;font-weight:600;color:#991b1b\">Recibido:</td><td style=\"padding:8px 12px\">${j.submissionDate}</td></tr>\n    </table>\n    <p style=\"color:#6b7280;font-size:13px\">Esta entrega será revisada con penalización por atraso según la política del curso.</p>\n  </div>\n</div>`;\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst notif_sql = \"INSERT INTO notifications_log (student_id, notification_type, message, status) VALUES ('\" +\n  safe(j.student_id) + \"', 'late_submission', 'Tardanza \" + delay + \" en \" + safe(j.task_name) + \"', 'sent')\";\nreturn [{ json: { ...j, emailSubject, emailBody, notif_sql } }];"
+      }
+    },
+    {
+      "id": "n2h",
+      "name": "Enviar Email Tardanza",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1920,
+        160
+      ],
+      "parameters": {
+        "fromEmail": "sistema@academico.local",
+        "toEmail": "={{ $json.studentEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "html",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP Mailhog Local"
+        }
+      }
+    },
+    {
+      "id": "n2i",
+      "name": "Log Notificación Tardanza",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        160
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.notif_sql }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "n2j",
+      "name": "Respuesta Tardanza",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF2: Respuesta notificación tardanza ─────────────────────────────────\nconst j = $json;\nreturn [{\n  json: {\n    success: true,\n    status: 'late',\n    message: 'Entrega recibida con ' + j.minutesLate + ' minutos de atraso ⚠️ — Se ha enviado notificación.',\n    student_id: j.student_id,\n    task_id: j.task_id,\n    submissionDate: j.submissionDate,\n    notificationSent: true\n  }\n}];"
+      }
+    },
+    {
+      "id": "n2k",
+      "name": "Respuesta A Tiempo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF2: Respuesta OK (entrega a tiempo) ─────────────────────────────────\nconst j = $json;\nreturn [{\n  json: {\n    success: true,\n    status: j.submissionStatus,\n    message: j.submissionStatus === 'on_time'\n      ? 'Entrega recibida correctamente y dentro del plazo ✅'\n      : 'Entrega con formato inválido ❌',\n    student_id: j.student_id,\n    task_id: j.task_id,\n    submissionDate: j.submissionDate\n  }\n}];"
+      }
+    },
+    {
+      "id": "n2l",
+      "name": "Set Error Validación",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ev1",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "ev2",
+              "name": "status",
+              "value": "validation_error",
+              "type": "string"
+            },
+            {
+              "id": "ev3",
+              "name": "errors",
+              "value": "={{ $json.errors }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "n2m",
+      "name": "HTTP Log Externo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://n8n_academic:5678/webhook/internal-log",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ source: 'WF2', event: $json.status, student: $json.student_id }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "n2n",
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2880,
+        380
+      ],
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Recibir Entrega": {
+      "main": [
+        [
+          {
+            "node": "Validar Entrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Entrega": {
+      "main": [
+        [
+          {
+            "node": "¿Formato Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Formato Válido?": {
+      "main": [
+        [
+          {
+            "node": "Construir SQL Entrega",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Error Validación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir SQL Entrega": {
+      "main": [
+        [
+          {
+            "node": "Guardar Entrega BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Entrega BD": {
+      "main": [
+        [
+          {
+            "node": "¿Entrega Tardía?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Entrega Tardía?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Email Tardanza",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta A Tiempo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Email Tardanza": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Tardanza",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Tardanza": {
+      "main": [
+        [
+          {
+            "node": "Log Notificación Tardanza",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Notificación Tardanza": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Tardanza",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta Tardanza": {
+      "main": [
+        [
+          {
+            "node": "HTTP Log Externo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta A Tiempo": {
+      "main": [
+        [
+          {
+            "node": "HTTP Log Externo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Error Validación": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Log Externo": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-002",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

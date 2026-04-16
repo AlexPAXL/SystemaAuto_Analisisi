@@ -1,0 +1,263 @@
+{
+  "name": "WF7 - CSV Upload API (Web)",
+  "nodes": [
+    {
+      "id": "w7a",
+      "name": "POST Upload CSV",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        360
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-csv",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "w7b",
+      "name": "Procesar CSV Web",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF7: Decodificar y validar CSV enviado desde la web ───────────────────\nconst { csv_base64, filename } = $json;\nif (!csv_base64) return [{ json: { ok: false, error: 'Falta campo csv_base64' } }];\n\nlet csvContent;\ntry { csvContent = Buffer.from(csv_base64, 'base64').toString('utf-8'); }\ncatch(e) { return [{ json: { ok: false, error: 'csv_base64 inválido: ' + e.message } }]; }\n\nconst allLines = csvContent.trim().split('\\n').filter(l => l.trim());\nif (allLines.length < 2) return [{ json: { ok: false, error: 'CSV vacío o sin filas de datos' } }];\n\nconst headers = allLines[0].split(',').map(h => h.trim().replace(/^\"|\"$/g,'').toLowerCase());\nconst required = ['student_id','student_name','course_id','date','status'];\nconst missing = required.filter(f => !headers.includes(f));\nif (missing.length > 0) return [{ json: { ok: false, error: 'Campos faltantes: ' + missing.join(', ') } }];\n\nconst validStatuses = ['present','absent','late','excused'];\nconst records = [], errors = [];\nfor (let i = 1; i < allLines.length; i++) {\n  const values = allLines[i].split(',').map(v => v.trim().replace(/^\"|\"$/g,''));\n  const row = {};\n  headers.forEach((h, idx) => { row[h] = values[idx]||''; });\n  const errs = [];\n  if (!row.student_id)   errs.push('Fila '+(i+1)+': student_id vacío');\n  if (!row.student_name) errs.push('Fila '+(i+1)+': student_name vacío');\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(row.date)) errs.push('Fila '+(i+1)+': fecha inválida ('+row.date+')');\n  if (!validStatuses.includes(row.status)) errs.push('Fila '+(i+1)+': status inválido ('+row.status+')');\n  if (errs.length > 0) errors.push(...errs);\n  else records.push(row);\n}\nif (records.length === 0) return [{ json: { ok: false, error: 'Sin registros válidos. Detalles: ' + errors.slice(0,3).join('; ') } }];\n\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst valueRows = records.map(r =>\n  \"('\" + safe(r.student_id) + \"','\" + safe(r.student_name) + \"','\" +\n  safe(r.course_id) + \"','\" + safe(r.date) + \"','\" + safe(r.status) + \"')\"\n);\nconst sql_query = 'INSERT INTO attendance (student_id, student_name, course_id, date, status) VALUES\\n' +\n  valueRows.join(',\\n') + '\\nON CONFLICT DO NOTHING';\n\nconst cnt = {\n  present: records.filter(r=>r.status==='present').length,\n  absent:  records.filter(r=>r.status==='absent').length,\n  late:    records.filter(r=>r.status==='late').length,\n  excused: records.filter(r=>r.status==='excused').length\n};\nreturn [{ json: { ok: true, sql_query, records, insertCount: records.length, errorCount: errors.length, errors, stats: cnt, filename: filename||'upload.csv' } }];"
+      }
+    },
+    {
+      "id": "w7c",
+      "name": "¿CSV Válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        360
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cv1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w7d",
+      "name": "Insertar en BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        960,
+        240
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "w7e",
+      "name": "Preparar Respuesta OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF7: Preparar respuesta final ────────────────────────────────────────\nconst orig = $('Procesar CSV Web').first().json;\nconst dateStr = new Date().toISOString().split('T')[0];\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst rpt_sql = \"INSERT INTO reports (report_type, file_path, status, records_count) VALUES ('attendance_web', '/data/shared/output/web_upload_\" + dateStr + \".html', 'generated', \" + (orig.insertCount||0) + \")\";\nreturn [{\n  json: {\n    ok: true,\n    message: orig.insertCount + ' registros de asistencia procesados correctamente.',\n    inserted: orig.insertCount,\n    skipped_errors: orig.errorCount,\n    error_details: orig.errors || [],\n    stats: orig.stats,\n    filename: orig.filename,\n    rpt_sql\n  }\n}];"
+      }
+    },
+    {
+      "id": "w7f",
+      "name": "Registrar en BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        240
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.rpt_sql }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "w7g",
+      "name": "Set Error CSV",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1",
+              "name": "ok",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "e2",
+              "name": "error",
+              "value": "={{ $json.error }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w7h",
+      "name": "Responder Upload",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        360
+      ],
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "POST Upload CSV": {
+      "main": [
+        [
+          {
+            "node": "Procesar CSV Web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar CSV Web": {
+      "main": [
+        [
+          {
+            "node": "¿CSV Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿CSV Válido?": {
+      "main": [
+        [
+          {
+            "node": "Insertar en BD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Error CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar en BD": {
+      "main": [
+        [
+          {
+            "node": "Preparar Respuesta OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Respuesta OK": {
+      "main": [
+        [
+          {
+            "node": "Registrar en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar en BD": {
+      "main": [
+        [
+          {
+            "node": "Responder Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Error CSV": {
+      "main": [
+        [
+          {
+            "node": "Responder Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-007",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

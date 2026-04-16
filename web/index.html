@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AcademicFlow — Plataforma Académica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Variables ──────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --sidebar-w:248px;
+  --bg:#f0f2fa;
+  --surface:#ffffff;
+  --sidebar:#0f1629;
+  --sidebar-hover:#1a2540;
+  --sidebar-active:#1d4ed8;
+  --primary:#1d4ed8;
+  --primary-light:#dbeafe;
+  --gold:#f59e0b;
+  --gold-light:#fef3c7;
+  --success:#10b981;--success-light:#d1fae5;
+  --warning:#f59e0b;--warning-light:#fef3c7;
+  --error:#ef4444;--error-light:#fee2e2;
+  --text:#0f172a;--text-2:#374151;--text-3:#6b7280;
+  --border:#e2e8f0;--border-2:#f1f5f9;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 12px rgba(0,0,0,.10);
+  --radius:10px;--radius-sm:6px;--radius-lg:14px;
+  --font-display:'Cormorant Garamond',serif;
+  --font-ui:'Figtree',sans-serif;
+  --transition:all .18s ease;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-ui);background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;overflow-x:hidden}
+
+/* ── Screens ────────────────────────────────────────────────────────────── */
+.screen{display:none;animation:fadeIn .35s ease}
+.screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOGIN
+═══════════════════════════════════════════════════════════════════════════ */
+#screen-login{
+  min-height:100vh;align-items:center;justify-content:center;flex-direction:column;
+  background:linear-gradient(135deg,#0f1629 0%,#1e3a5f 50%,#0f1629 100%);
+  position:relative;overflow:hidden;
+}
+#screen-login::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 60% at 30% 20%, rgba(59,130,246,.15) 0%,transparent 60%),
+             radial-gradient(ellipse 50% 50% at 80% 80%, rgba(245,158,11,.08) 0%,transparent 60%);
+}
+.login-card{
+  background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);
+  border-radius:20px;padding:48px 40px;width:min(480px,90vw);
+  box-shadow:0 24px 64px rgba(0,0,0,.4);position:relative;z-index:1;animation:popIn .5s ease;
+}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo .icon{
+  width:56px;height:56px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);
+  border-radius:14px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:24px;margin-bottom:12px;box-shadow:0 8px 24px rgba(29,78,216,.4);
+}
+.login-logo h1{font-family:var(--font-display);font-size:32px;color:#fff;font-weight:700;letter-spacing:-.5px}
+.login-logo p{color:rgba(255,255,255,.55);font-size:13px;margin-top:4px}
+.role-label{color:rgba(255,255,255,.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;text-align:center}
+.role-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+.role-card{
+  background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1);
+  border-radius:var(--radius);padding:20px 16px;cursor:pointer;text-align:center;
+  transition:var(--transition);
+}
+.role-card:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);transform:translateY(-2px)}
+.role-card.selected{background:rgba(29,78,216,.2);border-color:#3b82f6;box-shadow:0 0 0 4px rgba(59,130,246,.2)}
+.role-card .emoji{font-size:28px;display:block;margin-bottom:8px}
+.role-card .role-name{color:#fff;font-weight:600;font-size:14px}
+.role-card .role-desc{color:rgba(255,255,255,.5);font-size:12px;margin-top:3px}
+.login-fields{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.login-fields input{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  border-radius:var(--radius-sm);padding:11px 14px;color:#fff;font-family:var(--font-ui);font-size:14px;
+  outline:none;transition:var(--transition);
+}
+.login-fields input::placeholder{color:rgba(255,255,255,.35)}
+.login-fields input:focus{border-color:#3b82f6;background:rgba(255,255,255,.12);box-shadow:0 0 0 3px rgba(59,130,246,.2)}
+.btn-login{
+  width:100%;padding:13px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);
+  color:#fff;font-family:var(--font-ui);font-size:15px;font-weight:600;border:none;
+  border-radius:var(--radius-sm);cursor:pointer;transition:var(--transition);
+  box-shadow:0 4px 16px rgba(29,78,216,.35);
+}
+.btn-login:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(29,78,216,.45)}
+.btn-login:active{transform:translateY(0)}
+.login-footer{text-align:center;color:rgba(255,255,255,.35);font-size:12px;margin-top:20px}
+.demo-badge{display:inline-block;background:rgba(245,158,11,.2);border:1px solid rgba(245,158,11,.4);color:#fbbf24;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;margin-left:6px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DASHBOARD PROFESOR
+═══════════════════════════════════════════════════════════════════════════ */
+#screen-profesor{min-height:100vh;width:100%}
+
+/* Sidebar */
+.sidebar{
+  width:var(--sidebar-w);min-height:100vh;background:var(--sidebar);
+  display:flex;flex-direction:column;flex-shrink:0;
+  box-shadow:2px 0 12px rgba(0,0,0,.15);z-index:100;
+}
+.sidebar-brand{padding:22px 20px 16px;border-bottom:1px solid rgba(255,255,255,.07)}
+.sidebar-brand .logo-row{display:flex;align-items:center;gap:10px}
+.sidebar-brand .logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sidebar-brand h2{font-family:var(--font-display);color:#fff;font-size:18px;font-weight:700;letter-spacing:-.3px}
+.sidebar-brand p{color:rgba(255,255,255,.4);font-size:11px;margin-top:1px;margin-left:44px}
+.sidebar-nav{flex:1;padding:12px 10px;overflow-y:auto}
+.nav-section-label{color:rgba(255,255,255,.3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:16px 10px 6px}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);
+  color:rgba(255,255,255,.6);cursor:pointer;transition:var(--transition);margin-bottom:2px;
+  font-size:13.5px;font-weight:500;
+}
+.nav-item:hover{background:var(--sidebar-hover);color:#fff}
+.nav-item.active{background:rgba(29,78,216,.35);color:#93c5fd;font-weight:600}
+.nav-item.active::before{content:'';position:absolute;left:10px;width:3px;height:20px;background:#3b82f6;border-radius:2px}
+.nav-item{position:relative}
+.nav-icon{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;line-height:16px}
+.sidebar-footer{padding:14px;border-top:1px solid rgba(255,255,255,.07)}
+.user-info{display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--radius-sm);cursor:pointer;transition:var(--transition)}
+.user-info:hover{background:rgba(255,255,255,.06)}
+.avatar{width:34px;height:34px;background:linear-gradient(135deg,#f59e0b,#ef4444);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px;flex-shrink:0}
+.user-name{color:#fff;font-size:13px;font-weight:600;flex:1}
+.user-role{color:rgba(255,255,255,.45);font-size:11px}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;padding:4px;transition:var(--transition)}
+.btn-logout:hover{color:#ef4444}
+
+/* Main content */
+.main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 24px;height:60px;display:flex;align-items:center;gap:16px;
+  box-shadow:var(--shadow);flex-shrink:0;
+}
+.breadcrumb{flex:1;display:flex;align-items:center;gap:6px}
+.breadcrumb span{color:var(--text-3);font-size:13px}
+.breadcrumb .current{color:var(--text);font-weight:600}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.n8n-status{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 8px;font-size:12px;cursor:pointer;transition:var(--transition)}
+.n8n-status:hover{border-color:var(--primary)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#6b7280;flex-shrink:0}
+.status-dot.online{background:var(--success);box-shadow:0 0 0 3px rgba(16,185,129,.2)}
+.status-dot.offline{background:#ef4444}
+.content{flex:1;overflow-y:auto;padding:24px}
+.section-page{display:none;animation:slideIn .25s ease}
+.section-page.active{display:block}
+
+/* Page title */
+.page-title{margin-bottom:22px}
+.page-title h2{font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--text);letter-spacing:-.4px}
+.page-title p{color:var(--text-3);font-size:13px;margin-top:3px}
+
+/* ── Cards & Grid ────────────────────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{
+  background:var(--surface);border-radius:var(--radius);padding:20px;
+  border:1px solid var(--border);transition:var(--transition);
+  box-shadow:var(--shadow);animation:popIn .4s ease backwards;
+}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:rgba(29,78,216,.2)}
+.stat-card .label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:8px}
+.stat-card .value{font-family:var(--font-display);font-size:36px;font-weight:700;line-height:1;color:var(--text);margin-bottom:6px}
+.stat-card .sub{font-size:12px;color:var(--text-3)}
+.stat-card .icon-badge{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;float:right;margin-top:-8px}
+.stat-card.blue .icon-badge{background:var(--primary-light);color:var(--primary)}
+.stat-card.green .icon-badge{background:var(--success-light);color:var(--success)}
+.stat-card.gold .icon-badge{background:var(--gold-light);color:var(--gold)}
+.stat-card.red .icon-badge{background:var(--error-light);color:var(--error)}
+
+/* ── Cards with skeleton loading ─────────────────────────────────────────── */
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px;color:transparent!important}
+.skeleton *{visibility:hidden}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+.table-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow);margin-bottom:20px}
+.table-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-2)}
+.table-hdr h3{font-size:15px;font-weight:700;color:var(--text)}
+.table-hdr span{font-size:12px;color:var(--text-3)}
+table.data-table{width:100%;border-collapse:collapse}
+table.data-table th{padding:10px 14px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);background:var(--bg);border-bottom:1px solid var(--border)}
+table.data-table td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border-2)}
+table.data-table tr:last-child td{border:none}
+table.data-table tr:hover td{background:#f8fafc}
+.empty-state{text-align:center;padding:40px;color:var(--text-3)}
+.empty-state .empty-icon{font-size:36px;margin-bottom:8px}
+.empty-state p{font-size:13px}
+
+/* ── Badges/Pills ────────────────────────────────────────────────────────── */
+.pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:.02em}
+.pill-green{background:var(--success-light);color:#065f46}
+.pill-red{background:var(--error-light);color:#991b1b}
+.pill-yellow{background:var(--warning-light);color:#92400e}
+.pill-blue{background:var(--primary-light);color:#1e40af}
+.pill-gray{background:#f3f4f6;color:#374151}
+
+/* ── Forms ───────────────────────────────────────────────────────────────── */
+.form-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:24px;box-shadow:var(--shadow);margin-bottom:20px}
+.form-card h3{font-size:16px;font-weight:700;margin-bottom:18px;color:var(--text);display:flex;align-items:center;gap:8px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full-width{grid-column:1/-1}
+label{font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+input,select,textarea{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:9px 12px;font-family:var(--font-ui);font-size:14px;color:var(--text);
+  outline:none;transition:var(--transition);width:100%;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(29,78,216,.12)}
+textarea{resize:vertical;min-height:90px}
+.grade-row{display:flex;align-items:center;gap:12px;margin-top:4px}
+.grade-row input[type=range]{flex:1;accent-color:var(--primary)}
+.grade-display{background:var(--primary-light);color:var(--primary);font-weight:700;font-size:16px;padding:6px 14px;border-radius:8px;min-width:60px;text-align:center}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--radius-sm);font-family:var(--font-ui);font-size:13.5px;font-weight:600;border:none;cursor:pointer;transition:var(--transition)}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 2px 8px rgba(29,78,216,.25)}
+.btn-primary:hover{background:#1e40af;transform:translateY(-1px);box-shadow:0 4px 12px rgba(29,78,216,.35)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#059669;transform:translateY(-1px)}
+.btn-gold{background:var(--gold);color:#fff}
+.btn-gold:hover{background:#d97706;transform:translateY(-1px)}
+.btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary)}
+.btn-outline:hover{background:var(--primary-light)}
+.btn-danger{background:var(--error);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn:disabled,.btn[disabled]{opacity:.55;cursor:not-allowed;transform:none!important}
+.btn .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Upload area ─────────────────────────────────────────────────────────── */
+.upload-area{
+  border:2px dashed var(--border);border-radius:var(--radius);padding:36px;text-align:center;
+  background:var(--bg);transition:var(--transition);cursor:pointer;margin-bottom:16px;
+}
+.upload-area:hover,.upload-area.drag-over{border-color:var(--primary);background:var(--primary-light)}
+.upload-area .upload-icon{font-size:36px;margin-bottom:10px;display:block}
+.upload-area p{color:var(--text-3);font-size:13px}
+.upload-area strong{color:var(--primary)}
+.file-preview{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:13px}
+.file-preview .file-icon{font-size:20px}
+.file-preview .file-name{flex:1;font-weight:600;color:var(--text)}
+.file-preview .file-size{color:var(--text-3)}
+.file-preview .remove-btn{background:none;border:none;color:var(--error);cursor:pointer;font-size:16px;padding:2px}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.progress{background:var(--border-2);border-radius:4px;height:6px;overflow:hidden;margin:8px 0}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--primary),#7c3aed);border-radius:4px;transition:width .4s ease}
+
+/* ── Alert / Info box ────────────────────────────────────────────────────── */
+.alert{border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start}
+.alert-info{background:var(--primary-light);border:1px solid rgba(29,78,216,.2);color:#1e40af}
+.alert-success{background:var(--success-light);border:1px solid rgba(16,185,129,.2);color:#065f46}
+.alert-warning{background:var(--warning-light);border:1px solid rgba(245,158,11,.2);color:#92400e}
+.alert-error{background:var(--error-light);border:1px solid rgba(239,68,68,.2);color:#991b1b}
+.response-box{background:#0f1629;border:1px solid #1e3a5f;border-radius:var(--radius-sm);padding:14px;font-family:'Courier New',monospace;font-size:12px;color:#7dd3fc;margin-top:14px;max-height:200px;overflow-y:auto;white-space:pre-wrap;display:none}
+
+/* ── Toasts ──────────────────────────────────────────────────────────────── */
+#toast-container{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:12px 16px;min-width:280px;max-width:360px;box-shadow:var(--shadow-md);
+  display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;
+  animation:slideToast .3s ease;
+}
+@keyframes slideToast{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast-success{border-left:4px solid var(--success);color:#065f46}
+.toast-error{border-left:4px solid var(--error);color:#991b1b}
+.toast-info{border-left:4px solid var(--primary);color:#1e40af}
+.toast-warning{border-left:4px solid var(--gold);color:#92400e}
+.toast .toast-icon{font-size:18px;flex-shrink:0}
+.toast .toast-close{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-3);font-size:16px;padding:0 2px}
+
+/* ── Loading overlay ─────────────────────────────────────────────────────── */
+#loading-overlay{position:fixed;inset:0;background:rgba(15,22,41,.6);backdrop-filter:blur(4px);z-index:9000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#loading-overlay.active{display:flex}
+.loading-spinner{width:44px;height:44px;border:3px solid rgba(255,255,255,.2);border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite}
+#loading-overlay p{color:rgba(255,255,255,.8);font-size:14px;font-weight:500}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PORTAL ESTUDIANTE
+═══════════════════════════════════════════════════════════════════════════ */
+#screen-estudiante{min-height:100vh;flex-direction:column;background:var(--bg)}
+.stu-header{background:linear-gradient(135deg,#0f1629,#1e3a5f);color:#fff;padding:0 24px;height:60px;display:flex;align-items:center;gap:16px}
+.stu-header .logo{font-family:var(--font-display);font-size:20px;font-weight:700;flex:1}
+.stu-header .user-pill{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 14px 5px 8px;display:flex;align-items:center;gap:8px;font-size:13px}
+.stu-header .user-pill .av{width:24px;height:24px;background:linear-gradient(135deg,#f59e0b,#ef4444);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.stu-tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:0}
+.stu-tab{padding:14px 20px;font-size:14px;font-weight:600;color:var(--text-3);cursor:pointer;border-bottom:3px solid transparent;transition:var(--transition)}
+.stu-tab:hover{color:var(--text)}
+.stu-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.stu-content{flex:1;padding:24px;max-width:740px;margin:0 auto;width:100%}
+.stu-section{display:none}
+.stu-section.active{display:block;animation:slideIn .25s ease}
+
+/* Grade display for students */
+.grade-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:20px;margin-bottom:14px;box-shadow:var(--shadow);animation:popIn .3s ease}
+.grade-card .gc-top{display:flex;align-items:flex-start;gap:16px}
+.grade-card .gc-score{width:64px;height:64px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-display)}
+.grade-card .gc-score .num{font-size:22px;font-weight:700;line-height:1}
+.grade-card .gc-score .denom{font-size:11px;opacity:.7}
+.grade-card.passing .gc-score{background:var(--success-light);color:#065f46}
+.grade-card.failing  .gc-score{background:var(--error-light);color:#991b1b}
+.grade-card.neutral  .gc-score{background:var(--gold-light);color:#92400e}
+.grade-card .gc-info h4{font-size:15px;font-weight:700;margin-bottom:3px}
+.grade-card .gc-info .meta{font-size:12px;color:var(--text-3)}
+.grade-card .feedback-text{margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);font-size:13px;color:var(--text-2);border-left:3px solid var(--primary)}
+
+/* ── Responsivo ──────────────────────────────────────────────────────────── */
+@media(max-width:768px){
+  :root{--sidebar-w:0px}
+  .sidebar{display:none}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .form-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     SCREEN: LOGIN
+════════════════════════════════════════════════════════════════════════ -->
+<div class="screen active" id="screen-login">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">🎓</div>
+      <h1>AcademicFlow</h1>
+      <p>Plataforma de Automatización Académica</p>
+    </div>
+
+    <div class="role-label">Selecciona tu rol</div>
+    <div class="role-cards">
+      <div class="role-card selected" data-role="profesor" onclick="selectRole('profesor',this)">
+        <span class="emoji">👨‍🏫</span>
+        <div class="role-name">Profesor</div>
+        <div class="role-desc">Gestión y reportes</div>
+      </div>
+      <div class="role-card" data-role="estudiante" onclick="selectRole('estudiante',this)">
+        <span class="emoji">👩‍🎓</span>
+        <div class="role-name">Estudiante</div>
+        <div class="role-desc">Entregas y notas</div>
+      </div>
+    </div>
+
+    <div class="login-fields">
+      <input id="login-name" type="text" placeholder="Nombre completo" autocomplete="name">
+      <input id="login-id" type="text" placeholder="ID de usuario (ej: PROF01 / STU001)" autocomplete="off">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Ingresar →</button>
+
+    <div class="login-footer">
+      Conectado a n8n en <code id="n8n-url-display">localhost:5678</code>
+      <span class="demo-badge" id="demo-indicator">DEMO</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     SCREEN: PROFESOR
+════════════════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-profesor">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-row">
+        <div class="logo-icon">🎓</div>
+        <h2>AcademicFlow</h2>
+      </div>
+      <p>Panel del Profesor</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Principal</div>
+      <div class="nav-item active" data-section="overview" onclick="navigate('overview',this)">
+        <span class="nav-icon">📊</span> Resumen General
+      </div>
+      <div class="nav-item" data-section="asistencia" onclick="navigate('asistencia',this)">
+        <span class="nav-icon">📋</span> Asistencia CSV
+      </div>
+      <div class="nav-item" data-section="entregas" onclick="navigate('entregas',this)">
+        <span class="nav-icon">📁</span> Entregas
+      </div>
+      <div class="nav-item" data-section="calificaciones" onclick="navigate('calificaciones',this)">
+        <span class="nav-icon">⭐</span> Calificaciones
+      </div>
+      <div class="nav-section-label">Sistema</div>
+      <div class="nav-item" data-section="reportes" onclick="navigate('reportes',this)">
+        <span class="nav-icon">📄</span> Reportes
+      </div>
+      <div class="nav-item" data-section="errores" onclick="navigate('errores',this)">
+        <span class="nav-icon">🔴</span> Errores <span class="nav-badge" id="err-badge" style="display:none">0</span>
+      </div>
+      <div class="nav-item" data-section="tester" onclick="navigate('tester',this)">
+        <span class="nav-icon">🧪</span> Tester n8n
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="avatar" id="sidebar-avatar">PR</div>
+        <div>
+          <div class="user-name" id="sidebar-name">Profesor</div>
+          <div class="user-role" id="sidebar-id">ID: —</div>
+        </div>
+        <button class="btn-logout" onclick="doLogout()" title="Salir">⏏</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="main-wrap">
+    <header class="topbar">
+      <div class="breadcrumb">
+        <span>AcademicFlow</span><span>›</span><span class="current" id="breadcrumb-current">Resumen General</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="n8n-status" onclick="refreshStats()" title="Actualizar datos desde n8n">
+          <div class="status-dot" id="status-dot"></div>
+          <span id="status-text">Verificando…</span>
+        </div>
+        <button class="btn btn-outline" onclick="refreshStats()" style="font-size:12px;padding:6px 12px">↻ Actualizar</button>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- ── Overview ──────────────────────────────────────────────────── -->
+      <div class="section-page active" id="sec-overview">
+        <div class="page-title">
+          <h2>📊 Resumen General</h2>
+          <p id="last-updated">Cargando datos desde n8n…</p>
+        </div>
+
+        <div class="stats-grid" id="stats-grid">
+          <!-- Filled by JS -->
+          <div class="stat-card blue skeleton"><div class="value">00</div><div class="label">Asistencias</div></div>
+          <div class="stat-card green skeleton"><div class="value">00</div><div class="label">Entregas</div></div>
+          <div class="stat-card gold skeleton"><div class="value">00</div><div class="label">Promedio</div></div>
+          <div class="stat-card red skeleton"><div class="value">00</div><div class="label">Errores</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="table-card">
+            <div class="table-hdr"><h3>📁 Entregas Recientes</h3></div>
+            <table class="data-table">
+              <thead><tr><th>Estudiante</th><th>Tarea</th><th>Estado</th></tr></thead>
+              <tbody id="recent-subs-tbody">
+                <tr><td colspan="3" class="empty-state"><div class="empty-icon">⏳</div><p>Cargando…</p></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-card">
+            <div class="table-hdr"><h3>🔴 Errores Recientes</h3></div>
+            <table class="data-table">
+              <thead><tr><th>Workflow</th><th>Mensaje</th><th>Fecha</th></tr></thead>
+              <tbody id="recent-errors-tbody">
+                <tr><td colspan="3" class="empty-state"><div class="empty-icon">✅</div><p>Sin errores</p></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Asistencia ─────────────────────────────────────────────────── -->
+      <div class="section-page" id="sec-asistencia">
+        <div class="page-title">
+          <h2>📋 Cargar Asistencia CSV</h2>
+          <p>Sube un archivo CSV para procesar los registros de asistencia vía WF7 → PostgreSQL</p>
+        </div>
+
+        <div class="alert alert-info">
+          <span>ℹ️</span>
+          <div>El CSV debe tener columnas: <strong>student_id, student_name, course_id, date (YYYY-MM-DD), status</strong> (present/absent/late/excused)</div>
+        </div>
+
+        <div class="form-card">
+          <h3>⬆️ Subir Archivo CSV</h3>
+
+          <div class="upload-area" id="upload-area"
+               onclick="document.getElementById('csv-input').click()"
+               ondragover="handleDragOver(event)"
+               ondragleave="handleDragLeave(event)"
+               ondrop="handleDrop(event)">
+            <span class="upload-icon">📂</span>
+            <p><strong>Haz clic</strong> o arrastra tu CSV aquí</p>
+            <p style="margin-top:4px;font-size:12px">Formato: .csv · Max 10MB</p>
+          </div>
+          <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleFileSelect(event)">
+
+          <div id="file-preview" style="display:none" class="file-preview">
+            <span class="file-icon">📄</span>
+            <span class="file-name" id="file-name-display">archivo.csv</span>
+            <span class="file-size" id="file-size-display"></span>
+            <button class="remove-btn" onclick="clearFile()">✕</button>
+          </div>
+
+          <div id="csv-preview-box" style="display:none;margin-bottom:14px">
+            <div class="table-card">
+              <div class="table-hdr"><h3>Vista previa (primeras 5 filas)</h3></div>
+              <div style="overflow-x:auto">
+                <table class="data-table" id="csv-preview-table"></table>
+              </div>
+            </div>
+          </div>
+
+          <div id="upload-progress" style="display:none">
+            <div class="progress"><div class="progress-bar" id="upload-bar" style="width:0%"></div></div>
+            <p style="font-size:12px;color:var(--text-3);margin-top:4px" id="upload-status">Procesando…</p>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:4px">
+            <button class="btn btn-primary" id="btn-upload" onclick="submitCSV()" disabled>
+              <span>⬆️</span> Procesar Asistencia
+            </button>
+            <button class="btn btn-outline" onclick="loadSampleCSV()">📥 Cargar CSV de Ejemplo</button>
+          </div>
+
+          <div class="response-box" id="csv-response"></div>
+        </div>
+      </div>
+
+      <!-- ── Entregas ──────────────────────────────────────────────────── -->
+      <div class="section-page" id="sec-entregas">
+        <div class="page-title">
+          <h2>📁 Gestión de Entregas</h2>
+          <p>Historial de entregas recibidas vía WF2 (Webhook) y su estado</p>
+        </div>
+
+        <div class="table-card">
+          <div class="table-hdr">
+            <h3>Entregas Registradas en BD</h3>
+            <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="loadSubmissions()">↻ Actualizar</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Estudiante</th><th>ID</th><th>Tarea</th><th>Archivo</th><th>Estado</th><th>¿Tarde?</th><th>Fecha</th></tr></thead>
+            <tbody id="all-subs-tbody">
+              <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⏳</div><p>Cargando entregas…</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert alert-info">
+          <span>💡</span>
+          <div>Para enviar una nueva entrega usa el <strong>Portal Estudiante</strong> (selecciona rol Estudiante al ingresar) o el <strong>Tester n8n</strong>.</div>
+        </div>
+      </div>
+
+      <!-- ── Calificaciones ─────────────────────────────────────────────── -->
+      <div class="section-page" id="sec-calificaciones">
+        <div class="page-title">
+          <h2>⭐ Enviar Calificación</h2>
+          <p>Registra una nota y retroalimentación → WF4 → PostgreSQL + Email al estudiante</p>
+        </div>
+
+        <div class="form-card">
+          <h3>📝 Formulario de Retroalimentación</h3>
+          <form onsubmit="submitFeedback(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>ID del Estudiante *</label>
+                <input id="fb-student-id" type="text" placeholder="STU001" required>
+              </div>
+              <div class="form-group">
+                <label>Nombre del Estudiante *</label>
+                <input id="fb-student-name" type="text" placeholder="María García" required>
+              </div>
+              <div class="form-group">
+                <label>ID del Curso *</label>
+                <input id="fb-course-id" type="text" placeholder="CS101" required>
+              </div>
+              <div class="form-group">
+                <label>ID de la Tarea *</label>
+                <input id="fb-task-id" type="text" placeholder="TASK01" required>
+              </div>
+              <div class="form-group">
+                <label>Email del Estudiante (para notificación)</label>
+                <input id="fb-email" type="email" placeholder="estudiante@correo.com">
+              </div>
+              <div class="form-group">
+                <label>Nota (0-100) *</label>
+                <div class="grade-row">
+                  <input type="range" id="fb-grade-range" min="0" max="100" value="75" oninput="updateGrade(this.value)">
+                  <div class="grade-display" id="fb-grade-display">75</div>
+                </div>
+                <input type="hidden" id="fb-grade" value="75">
+              </div>
+              <div class="form-group full-width">
+                <label>Comentarios de Retroalimentación *</label>
+                <textarea id="fb-feedback" placeholder="Escribe aquí los comentarios sobre el trabajo del estudiante…" required></textarea>
+              </div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+              <button type="submit" class="btn btn-primary" id="btn-feedback">
+                <span>✉️</span> Enviar Retroalimentación
+              </button>
+              <button type="button" class="btn btn-outline" onclick="fillFeedbackDemo()">🎲 Demo</button>
+              <span id="fb-result" style="font-size:13px;color:var(--success)"></span>
+            </div>
+          </form>
+          <div class="response-box" id="fb-response"></div>
+        </div>
+      </div>
+
+      <!-- ── Reportes ───────────────────────────────────────────────────── -->
+      <div class="section-page" id="sec-reportes">
+        <div class="page-title">
+          <h2>📄 Generación de Reportes</h2>
+          <p>Genera reportes HTML con datos de asistencia y entregas vía WF8</p>
+        </div>
+
+        <div class="form-card" style="text-align:center;padding:36px">
+          <div style="font-size:48px;margin-bottom:16px">📊</div>
+          <h3 style="justify-content:center;font-size:20px;margin-bottom:8px">Reporte Académico Completo</h3>
+          <p style="color:var(--text-3);margin-bottom:24px;font-size:14px">Genera un reporte HTML con resumen de asistencia por curso y estadísticas de entregas.<br>El archivo se guarda en <code>shared/output/</code></p>
+          <button class="btn btn-primary" onclick="generateReport()" id="btn-gen-report" style="font-size:15px;padding:12px 28px">
+            <span>🚀</span> Generar Reporte Ahora
+          </button>
+          <div id="report-result" style="margin-top:20px"></div>
+        </div>
+
+        <div class="table-card" id="reports-table-card">
+          <div class="table-hdr"><h3>Reportes Generados</h3></div>
+          <table class="data-table">
+            <thead><tr><th>Tipo</th><th>Ruta del Archivo</th><th>Registros</th><th>Estado</th><th>Generado</th></tr></thead>
+            <tbody id="reports-tbody">
+              <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📄</div><p>Sin reportes aún. Genera el primero arriba.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Errores ────────────────────────────────────────────────────── -->
+      <div class="section-page" id="sec-errores">
+        <div class="page-title">
+          <h2>🔴 Log de Errores</h2>
+          <p>Registro de errores capturados por WF5 (Error Handler) y almacenados en PostgreSQL</p>
+        </div>
+
+        <div class="table-card">
+          <div class="table-hdr"><h3>Errores en Base de Datos</h3><span>Tabla: error_logs</span></div>
+          <table class="data-table">
+            <thead><tr><th>Workflow</th><th>Nodo</th><th>Mensaje</th><th>Fecha</th></tr></thead>
+            <tbody id="errors-tbody">
+              <tr><td colspan="4"><div class="empty-state"><div class="empty-icon">✅</div><p>Sin errores registrados</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Tester n8n ─────────────────────────────────────────────────── -->
+      <div class="section-page" id="sec-tester">
+        <div class="page-title">
+          <h2>🧪 Tester de Webhooks n8n</h2>
+          <p>Prueba los endpoints directamente desde la aplicación</p>
+        </div>
+
+        <div class="form-card">
+          <h3>🎯 Probar Webhook</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Método</label>
+              <select id="test-method"><option>GET</option><option selected>POST</option></select>
+            </div>
+            <div class="form-group">
+              <label>Endpoint</label>
+              <select id="test-endpoint" onchange="updateTestBody()">
+                <option value="/webhook/api/dashboard">GET /webhook/api/dashboard</option>
+                <option value="/webhook/task-submission">POST /webhook/task-submission</option>
+                <option value="/webhook/feedback">POST /webhook/feedback</option>
+                <option value="/webhook/upload-csv">POST /webhook/upload-csv</option>
+                <option value="/webhook/generate-report">POST /webhook/generate-report</option>
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <label>Body (JSON)</label>
+              <textarea id="test-body" style="font-family:monospace;min-height:120px;font-size:12px"></textarea>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px">
+            <button class="btn btn-primary" onclick="runTest()">▶ Ejecutar</button>
+            <button class="btn btn-outline" onclick="updateTestBody()">🔄 Reset Body</button>
+          </div>
+          <div class="response-box" id="test-response" style="display:block;margin-top:14px;min-height:60px">// Respuesta aparecerá aquí</div>
+        </div>
+
+        <div class="alert alert-warning">
+          <span>⚠️</span>
+          <div>Los workflows deben estar <strong>activos</strong> en n8n para responder a webhooks. Abre <a href="http://localhost:5678" target="_blank" style="color:var(--primary);font-weight:600">n8n → localhost:5678</a> y activa WF2, WF4, WF6, WF7, WF8.</div>
+        </div>
+      </div>
+
+    </main><!-- /content -->
+  </div><!-- /main-wrap -->
+</div><!-- /screen-profesor -->
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     SCREEN: ESTUDIANTE
+════════════════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-estudiante">
+  <div class="stu-header">
+    <div class="logo">🎓 AcademicFlow</div>
+    <div class="user-pill">
+      <div class="av" id="stu-avatar">ST</div>
+      <span id="stu-name-disp">Estudiante</span>
+    </div>
+    <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3);font-size:12px;padding:5px 12px" onclick="doLogout()">⏏ Salir</button>
+  </div>
+
+  <div class="stu-tabs">
+    <div class="stu-tab active" onclick="stuTab('enviar',this)">📤 Enviar Tarea</div>
+    <div class="stu-tab" onclick="stuTab('calificaciones',this)">⭐ Mis Calificaciones</div>
+  </div>
+
+  <div class="stu-content">
+
+    <!-- Tab: Enviar Tarea -->
+    <div class="stu-section active" id="stu-sec-enviar">
+      <div class="page-title" style="margin-top:8px">
+        <h2>📤 Enviar Tarea</h2>
+        <p>Tu entrega será registrada en el sistema y verificada por WF2</p>
+      </div>
+
+      <div class="form-card">
+        <h3>📋 Formulario de Entrega</h3>
+        <form onsubmit="submitTask(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Tu ID de Estudiante *</label>
+              <input id="stu-id-field" type="text" placeholder="STU001" required>
+            </div>
+            <div class="form-group">
+              <label>Tu Nombre Completo *</label>
+              <input id="stu-name-field" type="text" placeholder="María García" required>
+            </div>
+            <div class="form-group">
+              <label>ID de la Tarea *</label>
+              <input id="task-id-field" type="text" placeholder="TASK01" required>
+            </div>
+            <div class="form-group">
+              <label>Nombre de la Tarea *</label>
+              <input id="task-name-field" type="text" placeholder="Proyecto Final Fase 1" required>
+            </div>
+            <div class="form-group">
+              <label>Fecha Límite de Entrega *</label>
+              <input id="task-deadline" type="datetime-local" required>
+            </div>
+            <div class="form-group">
+              <label>Tu Email (para notificaciones)</label>
+              <input id="task-email" type="email" placeholder="tu@correo.com">
+            </div>
+            <div class="form-group">
+              <label>Nombre del Archivo *</label>
+              <input id="task-filename" type="text" placeholder="proyecto_final_maria" required>
+            </div>
+            <div class="form-group">
+              <label>Tipo de Archivo *</label>
+              <select id="task-ext" required>
+                <option value="">-- Selecciona --</option>
+                <option value="pdf">📄 PDF</option>
+                <option value="docx">📝 Word (DOCX)</option>
+                <option value="xlsx">📊 Excel (XLSX)</option>
+                <option value="py">🐍 Python (.py)</option>
+                <option value="java">☕ Java (.java)</option>
+                <option value="cpp">⚡ C++ (.cpp)</option>
+                <option value="zip">🗜️ ZIP</option>
+                <option value="txt">📃 Texto (.txt)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:18px;display:flex;gap:10px">
+            <button type="submit" class="btn btn-primary" id="btn-task-submit">
+              <span>📤</span> Enviar Tarea
+            </button>
+            <button type="button" class="btn btn-outline" onclick="fillTaskDemo()">🎲 Datos de ejemplo</button>
+          </div>
+        </form>
+        <div class="response-box" id="task-response"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Mis Calificaciones -->
+    <div class="stu-section" id="stu-sec-calificaciones">
+      <div class="page-title" style="margin-top:8px">
+        <h2>⭐ Mis Calificaciones</h2>
+        <p>Consulta las retroalimentaciones registradas en el sistema</p>
+      </div>
+
+      <div class="form-card" style="padding:18px">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div class="form-group" style="flex:1;margin:0">
+            <label>Ingresa tu ID de estudiante</label>
+            <input id="lookup-id" type="text" placeholder="STU001" style="margin-top:4px">
+          </div>
+          <button class="btn btn-primary" onclick="lookupGrades()">Buscar</button>
+        </div>
+      </div>
+
+      <div id="grades-list">
+        <div class="empty-state" style="padding:30px;text-align:center;color:var(--text-3)">
+          <div style="font-size:40px;margin-bottom:8px">🎓</div>
+          <p>Ingresa tu ID para ver tus calificaciones</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /stu-content -->
+</div><!-- /screen-estudiante -->
+
+<!-- Toast container & Loading overlay -->
+<div id="toast-container"></div>
+<div id="loading-overlay"><div class="loading-spinner"></div><p id="loading-msg">Procesando…</p></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════════════════════════
+const CFG = {
+  // Cuando usas Docker (nginx proxy) → '/api/n8n'
+  // Acceso directo sin Docker        → 'http://localhost:5678'
+  N8N: window.location.port === '3000' ? '/api/n8n' : 'http://localhost:5678',
+  TIMEOUT: 12000,
+};
+
+document.getElementById('n8n-url-display').textContent = CFG.N8N.replace('/api/n8n','localhost:5678');
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ESTADO
+// ═══════════════════════════════════════════════════════════════════════════
+const S = {
+  role: 'profesor', user: { name: '', id: '' },
+  n8nOnline: false, statsLoaded: false,
+  csvFile: null, csvContent: null,
+};
+
+const sampleGrades = [
+  { task_id:'TASK01', task_name:'Proyecto Final Fase 1', course_id:'CS101', grade:92.5, feedback_text:'Excelente trabajo. Documentación clara y código bien estructurado.', feedback_type:'positive' },
+  { task_id:'TASK02', task_name:'Análisis de Datos',     course_id:'CS102', grade:55.0, feedback_text:'Necesita mejorar la estructura y agregar más análisis estadístico.', feedback_type:'negative' },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  API
+// ═══════════════════════════════════════════════════════════════════════════
+async function apiFetch(path, options={}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CFG.TIMEOUT);
+  try {
+    const res = await fetch(CFG.N8N + path, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      ...options,
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch(e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════════════════════════════════
+function selectRole(role, el) {
+  S.role = role;
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function doLogin() {
+  const name = document.getElementById('login-name').value.trim();
+  const id   = document.getElementById('login-id').value.trim();
+  if (!name || !id) { toast('Ingresa tu nombre e ID', 'warning'); return; }
+  S.user = { name, id };
+
+  if (S.role === 'profesor') {
+    document.getElementById('sidebar-name').textContent = name;
+    document.getElementById('sidebar-id').textContent = 'ID: ' + id;
+    document.getElementById('sidebar-avatar').textContent = name.slice(0,2).toUpperCase();
+    showScreen('screen-profesor');
+    checkN8n();
+    refreshStats();
+  } else {
+    document.getElementById('stu-name-disp').textContent = name;
+    document.getElementById('stu-avatar').textContent = name.slice(0,2).toUpperCase();
+    document.getElementById('stu-id-field').value = id;
+    document.getElementById('stu-name-field').value = name;
+    showScreen('screen-estudiante');
+    // Set tomorrow as default deadline
+    const t = new Date(); t.setDate(t.getDate()+1); t.setHours(23,59);
+    document.getElementById('task-deadline').value = t.toISOString().slice(0,16);
+  }
+}
+
+function doLogout() {
+  showScreen('screen-login');
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-id').value = '';
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display='none'; });
+  const sc = document.getElementById(id);
+  sc.style.display = 'flex'; sc.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  NAVEGACIÓN PROFESOR
+// ═══════════════════════════════════════════════════════════════════════════
+const sectionLabels = {
+  overview:'Resumen General', asistencia:'Asistencia CSV', entregas:'Entregas',
+  calificaciones:'Calificaciones', reportes:'Reportes', errores:'Errores', tester:'Tester n8n'
+};
+
+function navigate(section, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('sec-' + section).classList.add('active');
+  document.getElementById('breadcrumb-current').textContent = sectionLabels[section];
+  if (section === 'entregas') loadSubmissions();
+  if (section === 'reportes') loadReports();
+  if (section === 'errores') loadErrors();
+  if (section === 'tester') updateTestBody();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  N8N STATUS CHECK
+// ═══════════════════════════════════════════════════════════════════════════
+async function checkN8n() {
+  try {
+    await apiFetch('/webhook/api/dashboard');
+    setStatus(true);
+  } catch { setStatus(false); }
+}
+
+function setStatus(online) {
+  S.n8nOnline = online;
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  const badge = document.getElementById('demo-indicator');
+  if (online) {
+    dot.className = 'status-dot online';
+    text.textContent = 'n8n conectado';
+    badge.style.display = 'none';
+  } else {
+    dot.className = 'status-dot offline';
+    text.textContent = 'Sin conexión (demo)';
+    badge.style.display = '';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════════════════════════════════════════
+async function refreshStats() {
+  setStatus(false);
+  try {
+    const d = await apiFetch('/webhook/api/dashboard');
+    setStatus(true);
+    renderStats(d);
+    renderRecentSubs(d.recent_submissions || []);
+    renderRecentErrors(d.recent_errors || []);
+    document.getElementById('last-updated').textContent =
+      'Actualizado: ' + new Date().toLocaleTimeString('es-GT');
+  } catch {
+    renderStats(getDemoStats());
+    renderRecentSubs(getDemoSubs());
+    renderRecentErrors([]);
+    document.getElementById('last-updated').textContent =
+      'Modo demo — n8n no disponible. Activa WF6 en n8n.';
+  }
+}
+
+function getDemoStats() {
+  return {
+    attendance:  { total:47, present:35, absent:8, late:4, rate:74.5 },
+    submissions: { total:32, on_time:25, late:5, missing:2 },
+    feedback:    { total:18, avg_grade:76.3, passing:14, failing:4 },
+    system:      { errors:0, reports:3, notifications:12 },
+  };
+}
+function getDemoSubs() {
+  return [
+    { student_name:'María García', task_id:'TASK01', status:'on_time', is_late:false, fecha:'2024-01-15 22:00' },
+    { student_name:'Carlos López', task_id:'TASK01', status:'late',    is_late:true,  fecha:'2024-01-16 10:30' },
+    { student_name:'Ana Martínez', task_id:'TASK02', status:'on_time', is_late:false, fecha:'2024-01-14 18:45' },
+  ];
+}
+
+function renderStats(d) {
+  const grid = document.getElementById('stats-grid');
+  const rate = d.attendance?.rate ?? 0;
+  const rateColor = rate >= 80 ? 'green' : rate >= 60 ? 'gold' : 'red';
+  grid.innerHTML = `
+    <div class="stat-card blue" style="animation-delay:.05s">
+      <div class="icon-badge">📋</div>
+      <div class="label">Total Asistencias</div>
+      <div class="value">${d.attendance?.total??0}</div>
+      <div class="sub">${d.attendance?.present??0} presentes · ${d.attendance?.absent??0} ausentes · ${d.attendance?.late??0} tardanzas</div>
+    </div>
+    <div class="stat-card ${rateColor}" style="animation-delay:.1s">
+      <div class="icon-badge">📊</div>
+      <div class="label">Tasa de Asistencia</div>
+      <div class="value">${d.attendance?.rate??0}%</div>
+      <div class="sub">De todos los registros</div>
+    </div>
+    <div class="stat-card green" style="animation-delay:.15s">
+      <div class="icon-badge">📁</div>
+      <div class="label">Entregas Registradas</div>
+      <div class="value">${d.submissions?.total??0}</div>
+      <div class="sub">${d.submissions?.on_time??0} a tiempo · ${d.submissions?.late??0} tardías · ${d.submissions?.missing??0} faltantes</div>
+    </div>
+    <div class="stat-card gold" style="animation-delay:.2s">
+      <div class="icon-badge">⭐</div>
+      <div class="label">Promedio de Notas</div>
+      <div class="value">${d.feedback?.avg_grade??0}</div>
+      <div class="sub">${d.feedback?.passing??0} aprobados · ${d.feedback?.failing??0} reprobados</div>
+    </div>
+    <div class="stat-card blue" style="animation-delay:.25s">
+      <div class="icon-badge">📄</div>
+      <div class="label">Reportes Generados</div>
+      <div class="value">${d.system?.reports??0}</div>
+      <div class="sub">${d.system?.notifications??0} notificaciones enviadas</div>
+    </div>
+    <div class="stat-card ${(d.system?.errors??0)>0?'red':'green'}" style="animation-delay:.3s">
+      <div class="icon-badge">${(d.system?.errors??0)>0?'🔴':'✅'}</div>
+      <div class="label">Errores del Sistema</div>
+      <div class="value">${d.system?.errors??0}</div>
+      <div class="sub">${(d.system?.errors??0)>0?'Revisar log de errores':'Sistema funcionando correctamente'}</div>
+    </div>
+  `;
+  const eb = document.getElementById('err-badge');
+  const ec = d.system?.errors??0;
+  eb.textContent = ec; eb.style.display = ec > 0 ? '' : 'none';
+}
+
+function renderRecentSubs(subs) {
+  const tb = document.getElementById('recent-subs-tbody');
+  if (!subs.length) { tb.innerHTML = '<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">📭</div><p>Sin entregas registradas</p></div></td></tr>'; return; }
+  tb.innerHTML = subs.slice(0,6).map(s => `
+    <tr>
+      <td><strong>${s.student_name||s.student_id}</strong></td>
+      <td><code style="font-size:11px;background:#f1f5f9;padding:1px 5px;border-radius:3px">${s.task_id}</code></td>
+      <td>${pillStatus(s.status, s.is_late)}</td>
+    </tr>`).join('');
+}
+
+function renderRecentErrors(errs) {
+  const tb = document.getElementById('recent-errors-tbody');
+  if (!errs.length) { tb.innerHTML = '<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">✅</div><p>Sin errores recientes</p></div></td></tr>'; return; }
+  tb.innerHTML = errs.map(e => `
+    <tr>
+      <td>${e.workflow_name||'—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.error_message||''}">${e.error_message||'—'}</td>
+      <td style="font-size:11px;color:var(--text-3)">${e.created_at||'—'}</td>
+    </tr>`).join('');
+}
+
+function pillStatus(status, isLate) {
+  const map = { on_time:'pill-green', late:'pill-red', missing:'pill-red', invalid_format:'pill-yellow', present:'pill-green', absent:'pill-red', excused:'pill-blue' };
+  const labels = { on_time:'A tiempo', late:'Tardía', missing:'Faltante', invalid_format:'Formato inv.', present:'Presente', absent:'Ausente', excused:'Excusado' };
+  const cls = map[status]||'pill-gray';
+  const lbl = labels[status]||status;
+  return `<span class="pill ${cls}">${lbl}</span>${isLate?'<span class="pill pill-red" style="margin-left:4px">⏰ Tarde</span>':''}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ASISTENCIA CSV
+// ═══════════════════════════════════════════════════════════════════════════
+function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect='copy'; document.getElementById('upload-area').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('upload-area').classList.remove('drag-over'); }
+function handleDrop(e) { e.preventDefault(); document.getElementById('upload-area').classList.remove('drag-over'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); }
+function handleFileSelect(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
+
+function processFile(file) {
+  if (!file.name.endsWith('.csv')) { toast('Solo se aceptan archivos .csv', 'error'); return; }
+  S.csvFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    S.csvContent = e.target.result;
+    showFilePreview(file);
+    renderCSVPreview(S.csvContent);
+    document.getElementById('btn-upload').disabled = false;
+  };
+  reader.readAsText(file);
+}
+
+function showFilePreview(file) {
+  document.getElementById('upload-area').style.display = 'none';
+  document.getElementById('file-preview').style.display = 'flex';
+  document.getElementById('file-name-display').textContent = file.name;
+  document.getElementById('file-size-display').textContent = (file.size/1024).toFixed(1) + ' KB';
+}
+
+function clearFile() {
+  S.csvFile = null; S.csvContent = null;
+  document.getElementById('upload-area').style.display = '';
+  document.getElementById('file-preview').style.display = 'none';
+  document.getElementById('csv-preview-box').style.display = 'none';
+  document.getElementById('btn-upload').disabled = true;
+  document.getElementById('csv-input').value = '';
+}
+
+function renderCSVPreview(csv) {
+  const lines = csv.trim().split('\n').slice(0,6);
+  const headers = lines[0].split(',').map(h => h.trim());
+  const rows = lines.slice(1);
+  const tbl = document.getElementById('csv-preview-table');
+  tbl.innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.split(',').map(c=>`<td>${c.trim()}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  document.getElementById('csv-preview-box').style.display = '';
+}
+
+function loadSampleCSV() {
+  const sampleCSV = `student_id,student_name,course_id,date,status
+STU001,María García,CS101,${new Date().toISOString().split('T')[0]},present
+STU002,Carlos López,CS101,${new Date().toISOString().split('T')[0]},absent
+STU003,Ana Martínez,CS101,${new Date().toISOString().split('T')[0]},late
+STU004,Pedro Rodríguez,CS102,${new Date().toISOString().split('T')[0]},present
+STU005,Laura Pérez,CS102,${new Date().toISOString().split('T')[0]},excused`;
+  S.csvContent = sampleCSV;
+  const blob = new Blob([sampleCSV],{type:'text/csv'});
+  S.csvFile = new File([blob],'sample_attendance.csv',{type:'text/csv'});
+  showFilePreview(S.csvFile);
+  renderCSVPreview(sampleCSV);
+  document.getElementById('btn-upload').disabled = false;
+  toast('CSV de ejemplo cargado', 'success');
+}
+
+async function submitCSV() {
+  if (!S.csvContent) return;
+  const btn = document.getElementById('btn-upload');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Procesando…';
+  const prog = document.getElementById('upload-progress');
+  prog.style.display = '';
+  const bar = document.getElementById('upload-bar');
+  const status = document.getElementById('upload-status');
+
+  bar.style.width='20%'; status.textContent='Codificando CSV…';
+  const csv_b64 = btoa(unescape(encodeURIComponent(S.csvContent)));
+
+  bar.style.width='50%'; status.textContent='Enviando a n8n (WF7)…';
+
+  try {
+    const res = await apiFetch('/webhook/upload-csv', {
+      method:'POST',
+      body: JSON.stringify({ csv_base64: csv_b64, filename: S.csvFile?.name || 'upload.csv' })
+    });
+    bar.style.width='100%'; status.textContent='¡Completado!';
+    const box = document.getElementById('csv-response');
+    box.style.display='block';
+    box.textContent = JSON.stringify(res, null, 2);
+    if (res.ok !== false) {
+      toast(`✅ ${res.inserted||res.insertCount||'?'} registros procesados`, 'success');
+      refreshStats();
+    } else {
+      toast('Error: ' + (res.error||'Desconocido'), 'error');
+    }
+  } catch(e) {
+    bar.style.width='100%'; bar.style.background='var(--error)';
+    status.textContent='Error de conexión — ¿n8n activo?';
+    toast('No se pudo conectar a n8n. Activa WF7.', 'error');
+    const box = document.getElementById('csv-response');
+    box.style.display='block';
+    box.textContent = '// ERROR: ' + e.message + '\n// Asegúrate de que WF7 esté activo en n8n.';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<span>⬆️</span> Procesar Asistencia';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ENTREGAS
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadSubmissions() {
+  const tb = document.getElementById('all-subs-tbody');
+  tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⏳</div><p>Consultando n8n…</p></div></td></tr>';
+  try {
+    const d = await apiFetch('/webhook/api/dashboard');
+    const subs = d.recent_submissions || [];
+    if (!subs.length) {
+      tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📭</div><p>Sin entregas aún. Usa el Portal Estudiante o el Tester.</p></div></td></tr>';
+      return;
+    }
+    tb.innerHTML = subs.map(s => `<tr>
+      <td><strong>${s.student_name||'—'}</strong></td>
+      <td><code style="font-size:11px">${s.student_id||'—'}</code></td>
+      <td>${s.task_id||'—'}</td>
+      <td>${s.task_name||'—'}</td>
+      <td>${pillStatus(s.status)}</td>
+      <td>${s.is_late?'<span class="pill pill-red">Sí</span>':'<span class="pill pill-green">No</span>'}</td>
+      <td style="font-size:12px;color:var(--text-3)">${s.fecha||'—'}</td>
+    </tr>`).join('');
+  } catch {
+    tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔴</div><p>No se pudo conectar a n8n. Activa WF6.</p></div></td></tr>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CALIFICACIONES / FEEDBACK
+// ═══════════════════════════════════════════════════════════════════════════
+function updateGrade(val) {
+  document.getElementById('fb-grade').value = val;
+  const disp = document.getElementById('fb-grade-display');
+  disp.textContent = val;
+  disp.style.background = val >= 60 ? 'var(--success-light)' : 'var(--error-light)';
+  disp.style.color = val >= 60 ? '#065f46' : '#991b1b';
+}
+
+function fillFeedbackDemo() {
+  document.getElementById('fb-student-id').value   = 'STU002';
+  document.getElementById('fb-student-name').value = 'Carlos López';
+  document.getElementById('fb-course-id').value    = 'CS101';
+  document.getElementById('fb-task-id').value      = 'TASK01';
+  document.getElementById('fb-email').value        = 'carlos@estudiante.edu';
+  document.getElementById('fb-grade-range').value  = 45;
+  updateGrade(45);
+  document.getElementById('fb-feedback').value = 'Entrega recibida con 2 días de atraso. Falta documentación técnica y las pruebas unitarias están incompletas. Se recomienda revisar los criterios de evaluación y rehacer la sección 3.';
+}
+
+async function submitFeedback(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-feedback');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Enviando…';
+  const payload = {
+    student_id:   document.getElementById('fb-student-id').value,
+    student_name: document.getElementById('fb-student-name').value,
+    course_id:    document.getElementById('fb-course-id').value,
+    task_id:      document.getElementById('fb-task-id').value,
+    grade:        Number(document.getElementById('fb-grade').value),
+    feedback_text:document.getElementById('fb-feedback').value,
+    student_email:document.getElementById('fb-email').value,
+  };
+  try {
+    const res = await apiFetch('/webhook/feedback', { method:'POST', body: JSON.stringify(payload) });
+    const box = document.getElementById('fb-response');
+    box.style.display = 'block';
+    box.textContent = JSON.stringify(res, null, 2);
+    const arr = Array.isArray(res) ? res[0] : res;
+    if (arr?.success !== false) {
+      toast('✅ Retroalimentación enviada. Email en Mailhog (:8025)', 'success');
+      refreshStats();
+    } else {
+      toast('Error: ' + (arr?.message||'Revisa n8n'), 'error');
+    }
+  } catch(e) {
+    toast('No se pudo conectar a n8n. Activa WF4.', 'error');
+    const box = document.getElementById('fb-response');
+    box.style.display = 'block';
+    box.textContent = '// ERROR: ' + e.message;
+  }
+  btn.disabled = false; btn.innerHTML = '<span>✉️</span> Enviar Retroalimentación';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  REPORTES
+// ═══════════════════════════════════════════════════════════════════════════
+async function generateReport() {
+  const btn = document.getElementById('btn-gen-report');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Generando…';
+  const res_div = document.getElementById('report-result');
+  res_div.innerHTML = '';
+  try {
+    const res = await apiFetch('/webhook/generate-report', { method:'POST', body:'{}' });
+    const d = Array.isArray(res) ? res[0] : res;
+    if (d?.ok !== false) {
+      res_div.innerHTML = `<div class="alert alert-success"><span>✅</span><div>Reporte generado: <strong>${d.reportName||'report.html'}</strong><br><small>Guardado en <code>shared/output/</code> · ${d.attCount||0} cursos · ${d.subCount||0} tareas · ${d.generatedAt||''}</small></div></div>`;
+      toast('Reporte generado exitosamente', 'success');
+      loadReports();
+    } else {
+      res_div.innerHTML = `<div class="alert alert-error"><span>❌</span><div>${d.error||'Error al generar reporte'}</div></div>`;
+    }
+  } catch(e) {
+    res_div.innerHTML = `<div class="alert alert-warning"><span>⚠️</span><div>No se pudo conectar a n8n. Activa WF8.<br><small>${e.message}</small></div></div>`;
+  }
+  btn.disabled = false; btn.innerHTML = '<span>🚀</span> Generar Reporte Ahora';
+}
+
+async function loadReports() {
+  // Reports come from the dashboard stats; for list we try the API
+  try {
+    const d = await apiFetch('/webhook/api/dashboard');
+    // Reports list comes from system stats, not individual rows
+    // We'll just show a note about checking shared/output
+    document.getElementById('reports-tbody').innerHTML =
+      '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📂</div><p>Los reportes HTML se guardan en <strong>shared/output/</strong><br>Total generados: <strong>' + (d.system?.reports||0) + '</strong>. Ábrelos directamente desde el directorio.</p></div></td></tr>';
+  } catch {
+    document.getElementById('reports-tbody').innerHTML =
+      '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📂</div><p>Conecta n8n para ver el historial. Los reportes están en <strong>shared/output/</strong></p></div></td></tr>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ERRORES
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadErrors() {
+  const tb = document.getElementById('errors-tbody');
+  tb.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">⏳</div><p>Consultando…</p></div></td></tr>';
+  try {
+    const d = await apiFetch('/webhook/api/dashboard');
+    const errs = d.recent_errors || [];
+    if (!errs.length) {
+      tb.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">✅</div><p>Sin errores registrados. Sistema funcionando correctamente.</p></div></td></tr>';
+    } else {
+      tb.innerHTML = errs.map(e => `<tr>
+        <td>${e.workflow_name||'—'}</td>
+        <td>${e.node_name||'—'}</td>
+        <td style="max-width:300px;font-size:12px">${e.error_message||'—'}</td>
+        <td style="font-size:11px;color:var(--text-3)">${e.created_at||'—'}</td>
+      </tr>`).join('');
+    }
+  } catch {
+    tb.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🔴</div><p>No se pudo conectar a n8n. Activa WF6.</p></div></td></tr>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TESTER
+// ═══════════════════════════════════════════════════════════════════════════
+const testBodies = {
+  '/webhook/api/dashboard': null,
+  '/webhook/task-submission': { student_id:'STU099', student_name:'Test User', task_id:'TASK03', task_name:'Prueba de sistema', deadline: (() => { const d=new Date(); d.setDate(d.getDate()+7); return d.toISOString(); })(), file_name:'test_file', file_extension:'pdf', student_email:'test@sistema.local' },
+  '/webhook/feedback': { student_id:'STU001', student_name:'María García', course_id:'CS101', task_id:'TASK01', grade:45, feedback_text:'Prueba de retroalimentación desde tester.', student_email:'maria@estudiante.edu' },
+  '/webhook/upload-csv': { csv_base64: btoa('student_id,student_name,course_id,date,status\nSTU099,Test User,CS999,'+new Date().toISOString().split('T')[0]+',present'), filename:'test.csv' },
+  '/webhook/generate-report': {},
+};
+
+function updateTestBody() {
+  const ep = document.getElementById('test-endpoint').value;
+  const method = ep === '/webhook/api/dashboard' ? 'GET' : 'POST';
+  document.getElementById('test-method').value = method;
+  const body = testBodies[ep];
+  document.getElementById('test-body').value = body ? JSON.stringify(body, null, 2) : '// GET request — sin body';
+}
+
+async function runTest() {
+  const ep     = document.getElementById('test-endpoint').value;
+  const method = document.getElementById('test-method').value;
+  const bodyStr = document.getElementById('test-body').value.replace(/^\/\/.*$/gm,'').trim();
+  const box    = document.getElementById('test-response');
+  box.textContent = '// Ejecutando…';
+  try {
+    const opts = { method };
+    if (method !== 'GET' && bodyStr) {
+      try { JSON.parse(bodyStr); opts.body = bodyStr; } catch { box.textContent = '// JSON inválido en el body'; return; }
+    }
+    const res = await apiFetch(ep, opts);
+    box.textContent = JSON.stringify(res, null, 2);
+    toast('Respuesta recibida ✅', 'success');
+  } catch(e) {
+    box.textContent = '// ERROR: ' + e.message + '\n// ¿Workflow activo en n8n?';
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PORTAL ESTUDIANTE
+// ═══════════════════════════════════════════════════════════════════════════
+function stuTab(tab, el) {
+  document.querySelectorAll('.stu-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.stu-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('stu-sec-' + tab).classList.add('active');
+}
+
+function fillTaskDemo() {
+  document.getElementById('stu-id-field').value   = S.user.id || 'STU001';
+  document.getElementById('stu-name-field').value = S.user.name || 'Estudiante Demo';
+  document.getElementById('task-id-field').value  = 'TASK03';
+  document.getElementById('task-name-field').value= 'Laboratorio de Redes';
+  document.getElementById('task-filename').value  = 'lab_redes_demo';
+  document.getElementById('task-ext').value       = 'pdf';
+}
+
+async function submitTask(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-task-submit');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Enviando…';
+
+  const deadline = document.getElementById('task-deadline').value;
+  const payload = {
+    student_id:      document.getElementById('stu-id-field').value,
+    student_name:    document.getElementById('stu-name-field').value,
+    task_id:         document.getElementById('task-id-field').value,
+    task_name:       document.getElementById('task-name-field').value,
+    deadline:        deadline ? new Date(deadline).toISOString() : new Date().toISOString(),
+    file_name:       document.getElementById('task-filename').value,
+    file_extension:  document.getElementById('task-ext').value,
+    student_email:   document.getElementById('task-email').value,
+  };
+
+  try {
+    const res = await apiFetch('/webhook/task-submission', { method:'POST', body: JSON.stringify(payload) });
+    const box = document.getElementById('task-response');
+    box.style.display = 'block';
+    box.textContent = JSON.stringify(res, null, 2);
+    const r = Array.isArray(res) ? res[0] : res;
+    if (r?.success !== false) {
+      const isLate = r?.status === 'late';
+      toast(isLate ? '⚠️ Entrega registrada (tardía) — revisa tu email' : '✅ Tarea enviada exitosamente', isLate ? 'warning' : 'success');
+    } else {
+      toast('Error: ' + (r?.errors?.join(', ')||'Revisa los datos'), 'error');
+    }
+  } catch(e) {
+    toast('No se pudo conectar a n8n. Activa WF2.', 'error');
+    const box = document.getElementById('task-response');
+    box.style.display = 'block';
+    box.textContent = '// ERROR: ' + e.message + '\n// Activa WF2 en n8n';
+  }
+
+  btn.disabled = false; btn.innerHTML = '<span>📤</span> Enviar Tarea';
+}
+
+function lookupGrades() {
+  const id = document.getElementById('lookup-id').value.trim();
+  if (!id) { toast('Ingresa tu ID', 'warning'); return; }
+  const container = document.getElementById('grades-list');
+  // Use sample data (real data would require a GET webhook per student)
+  const matching = sampleGrades;
+  if (!matching.length) {
+    container.innerHTML = '<div class="empty-state" style="padding:30px;text-align:center"><div style="font-size:36px;margin-bottom:8px">📭</div><p>No se encontraron calificaciones para ' + id + '</p></div>';
+    return;
+  }
+  container.innerHTML = matching.map(g => {
+    const cls = g.grade >= 80 ? 'passing' : g.grade >= 60 ? 'neutral' : 'failing';
+    const icon = g.grade >= 80 ? '🎉' : g.grade >= 60 ? '📝' : '⚠️';
+    return `<div class="grade-card ${cls}">
+      <div class="gc-top">
+        <div class="gc-score"><div class="num">${g.grade}</div><div class="denom">/100</div></div>
+        <div class="gc-info">
+          <h4>${icon} ${g.task_name}</h4>
+          <div class="meta">Curso: ${g.course_id} &nbsp;·&nbsp; Tarea: ${g.task_id}</div>
+        </div>
+      </div>
+      <div class="feedback-text">💬 ${g.feedback_text}</div>
+    </div>`;
+  }).join('');
+  toast('Calificaciones cargadas', 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TOASTS
+// ═══════════════════════════════════════════════════════════════════════════
+function toast(msg, type='info', dur=4000) {
+  const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<span class="toast-icon">${icons[type]||'•'}</span><span style="flex:1">${msg}</span><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('toast-container').prepend(t);
+  setTimeout(() => t.style.opacity='0', dur-400);
+  setTimeout(() => t.remove(), dur);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ENTER KEY en login
+// ═══════════════════════════════════════════════════════════════════════════
+document.getElementById('login-id').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+document.getElementById('login-name').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+updateTestBody();
+// Pre-fill demo data
+document.getElementById('login-name').value = '';
+document.getElementById('login-id').value   = '';
+</script>
+</body>
+</html>

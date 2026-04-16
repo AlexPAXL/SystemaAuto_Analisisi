@@ -1,0 +1,120 @@
+version: "3.8"
+
+services:
+
+  # ─── 🌐 Web App (build local — compatible Windows) ────────────────────
+  web:
+    build:
+      context: ./web          # usa el Dockerfile en ./web/
+      dockerfile: Dockerfile
+    container_name: web_academic
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      - n8n
+    networks:
+      - academic_net
+
+  # ─── n8n ──────────────────────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n_academic
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      N8N_BASIC_AUTH_ACTIVE:            "true"
+      N8N_BASIC_AUTH_USER:              ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD:          ${N8N_BASIC_AUTH_PASSWORD}
+      DB_TYPE:                          postgresdb
+      DB_POSTGRESDB_HOST:               postgres
+      DB_POSTGRESDB_PORT:               5432
+      DB_POSTGRESDB_DATABASE:           ${POSTGRES_DB}
+      DB_POSTGRESDB_USER:               ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD:           ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_SCHEMA:             public
+      N8N_HOST:                         ${N8N_HOST:-localhost}
+      N8N_PORT:                         5678
+      N8N_PROTOCOL:                     http
+      WEBHOOK_URL:                      http://${N8N_HOST:-localhost}:${N8N_PORT:-5678}/
+      GENERIC_TIMEZONE:                 ${TIMEZONE:-America/Guatemala}
+      N8N_ENCRYPTION_KEY:               ${N8N_ENCRYPTION_KEY}
+      NODE_FUNCTION_ALLOW_EXTERNAL:     "*"
+      N8N_COMMUNITY_PACKAGES_ENABLED:   "true"
+      N8N_LOG_LEVEL:                    info
+      N8N_CORS_ENABLED:                 "true"
+      N8N_CORS_ALLOW_ORIGIN:            "*"
+      N8N_SKIP_OWNER_SETUP:             "true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./shared:/data/shared
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - academic_net
+
+  # ─── PostgreSQL ────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_academic
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - academic_net
+
+  # ─── Adminer ──────────────────────────────────────────────────────────
+  adminer:
+    image: adminer:4.8.1
+    container_name: adminer_academic
+    restart: unless-stopped
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - academic_net
+
+  # ─── Mailhog ──────────────────────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: mailhog_academic
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
+    networks:
+      - academic_net
+    environment:
+      - MH_AUTH_FILE=/mailhog.auth
+    volumes:
+      - ./mailhog.auth:/mailhog.auth
+volumes:
+  n8n_data:
+    name: academic_n8n_data
+  postgres_data:
+    name: academic_postgres_data
+
+networks:
+  academic_net:
+    name: academic_network
+    driver: bridge

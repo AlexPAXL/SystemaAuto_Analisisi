@@ -1,0 +1,166 @@
+{
+  "name": "WF5 - Error Handler Global",
+  "nodes": [
+    {
+      "id": "n5a",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        380
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "n5b",
+      "name": "Formatear Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        380
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// ── WF5: Formatear error para log y notificación ─────────────────────────\nconst err = $json;\nconst safe = s => String(s||'').replace(/'/g,\"''\");\nconst wfName = safe(err.workflow ? err.workflow.name : 'Desconocido');\nconst nodeName = safe(err.execution ? err.execution.lastNodeExecuted : 'Desconocido');\nconst errorMsg = safe(err.error ? (err.error.message || JSON.stringify(err.error)) : 'Error sin mensaje');\nconst errData = safe(JSON.stringify(err));\n\nconst sql_query = \"INSERT INTO error_logs (workflow_name, node_name, error_message, error_data) VALUES ('\" +\n  wfName + \"', '\" + nodeName + \"', '\" + errorMsg + \"', '\" + errData + \"')\";\n\nconst emailSubject = '🚨 Error en Workflow: ' + (err.workflow ? err.workflow.name : 'Desconocido');\nconst emailBody = `<div style=\"font-family:Arial,sans-serif;max-width:560px\">\n  <div style=\"background:#dc2626;color:#fff;padding:18px;border-radius:8px 8px 0 0\">\n    <h2 style=\"margin:0\">🚨 Error de Sistema</h2></div>\n  <div style=\"background:#fff;padding:20px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px\">\n    <p><strong>Workflow:</strong> ${err.workflow ? err.workflow.name : 'N/A'}</p>\n    <p><strong>Nodo:</strong> ${err.execution ? err.execution.lastNodeExecuted : 'N/A'}</p>\n    <p><strong>Error:</strong> ${err.error ? (err.error.message || 'Sin mensaje') : 'N/A'}</p>\n    <p style=\"color:#6b7280;font-size:12px\">Revise el log de errores en la tabla error_logs de la BD.</p>\n  </div></div>`;\n\nreturn [{ json: { sql_query, emailSubject, emailBody, workflowName: wfName, errorMsg } }];"
+      }
+    },
+    {
+      "id": "n5c",
+      "name": "Guardar Error en BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        720,
+        380
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Academic DB"
+        }
+      }
+    },
+    {
+      "id": "n5d",
+      "name": "Notificar Error Admin",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        380
+      ],
+      "parameters": {
+        "fromEmail": "sistema@academico.local",
+        "toEmail": "admin@academico.local",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "html",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP Mailhog Local"
+        }
+      }
+    },
+    {
+      "id": "n5e",
+      "name": "Log Final",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        380
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "er1",
+              "name": "errorHandled",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "er2",
+              "name": "workflow",
+              "value": "={{ $json.workflowName }}",
+              "type": "string"
+            },
+            {
+              "id": "er3",
+              "name": "error",
+              "value": "={{ $json.errorMsg }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Formatear Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Error": {
+      "main": [
+        [
+          {
+            "node": "Guardar Error en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Error en BD": {
+      "main": [
+        [
+          {
+            "node": "Notificar Error Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Error Admin": {
+      "main": [
+        [
+          {
+            "node": "Log Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wf-005",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
