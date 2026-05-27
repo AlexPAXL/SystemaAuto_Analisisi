@@ -1,11 +1,9 @@
-version: "3.8"
-
 services:
 
-  # ─── 🌐 Web App (build local — compatible Windows) ────────────────────
+  # ─── 🌐 Web App ────────────────────────────────────────────────────────
   web:
     build:
-      context: ./web          # usa el Dockerfile en ./web/
+      context: ./web
       dockerfile: Dockerfile
     container_name: web_academic
     restart: unless-stopped
@@ -19,36 +17,38 @@ services:
   # ─── n8n ──────────────────────────────────────────────────────────────
   n8n:
     image: n8nio/n8n:latest
+    user: root
     container_name: n8n_academic
     restart: unless-stopped
     ports:
       - "${N8N_PORT:-5678}:5678"
     environment:
-      N8N_BASIC_AUTH_ACTIVE:            "true"
-      N8N_BASIC_AUTH_USER:              ${N8N_BASIC_AUTH_USER}
-      N8N_BASIC_AUTH_PASSWORD:          ${N8N_BASIC_AUTH_PASSWORD}
-      DB_TYPE:                          postgresdb
-      DB_POSTGRESDB_HOST:               postgres
-      DB_POSTGRESDB_PORT:               5432
-      DB_POSTGRESDB_DATABASE:           ${POSTGRES_DB}
-      DB_POSTGRESDB_USER:               ${POSTGRES_USER}
-      DB_POSTGRESDB_PASSWORD:           ${POSTGRES_PASSWORD}
-      DB_POSTGRESDB_SCHEMA:             public
-      N8N_HOST:                         ${N8N_HOST:-localhost}
-      N8N_PORT:                         5678
-      N8N_PROTOCOL:                     http
-      WEBHOOK_URL:                      http://${N8N_HOST:-localhost}:${N8N_PORT:-5678}/
-      GENERIC_TIMEZONE:                 ${TIMEZONE:-America/Guatemala}
-      N8N_ENCRYPTION_KEY:               ${N8N_ENCRYPTION_KEY}
-      NODE_FUNCTION_ALLOW_EXTERNAL:     "*"
-      N8N_COMMUNITY_PACKAGES_ENABLED:   "true"
-      N8N_LOG_LEVEL:                    info
-      N8N_CORS_ENABLED:                 "true"
-      N8N_CORS_ALLOW_ORIGIN:            "*"
-      N8N_SKIP_OWNER_SETUP:             "true"
+      N8N_BASIC_AUTH_ACTIVE:          "true"
+      N8N_BASIC_AUTH_USER:            ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD:        ${N8N_BASIC_AUTH_PASSWORD}
+      DB_TYPE:                        postgresdb
+      DB_POSTGRESDB_HOST:             postgres
+      DB_POSTGRESDB_PORT:             5432
+      DB_POSTGRESDB_DATABASE:         ${POSTGRES_DB}
+      DB_POSTGRESDB_USER:             ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD:         ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_SCHEMA:           public
+      N8N_HOST:                       ${N8N_HOST:-localhost}
+      N8N_PORT:                       5678
+      N8N_PROTOCOL:                   http
+      WEBHOOK_URL:                    http://${N8N_HOST:-localhost}:${N8N_PORT:-5678}/
+      GENERIC_TIMEZONE:               ${TIMEZONE:-America/Guatemala}
+      N8N_ENCRYPTION_KEY:             ${N8N_ENCRYPTION_KEY}
+      NODE_FUNCTION_ALLOW_EXTERNAL:   "*"
+      N8N_RESTRICT_FILE_ACCESS_TO:      /data/shared
+      N8N_COMMUNITY_PACKAGES_ENABLED: "true"
+      N8N_LOG_LEVEL:                  info
+      N8N_CORS_ENABLED:               "true"
+      N8N_CORS_ALLOW_ORIGIN:          "*"
+      N8N_SKIP_OWNER_SETUP:           "true"
     volumes:
-      - n8n_data:/home/node/.n8n
-      - ./shared:/data/shared
+      - academic_n8n_data:/home/node/.n8n
+      - ./shared:/data/shared 
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,19 +104,16 @@ services:
       - "${MAILHOG_UI_PORT:-8025}:8025"
     networks:
       - academic_net
-    #environment:
-    #  - MH_AUTH_FILE=/mailhog.auth
-    #volumes:
-    #  - ./mailhog.auth:/mailhog.auth
-    command: ["-auth-file=/mailhog.auth"]
-    volumes:
-      - ./mailhog.auth:/mailhog.auth:ro   # ro = solo lectura
+
 volumes:
-  n8n_data:
+  academic_n8n_data:
+    external: true
     name: academic_n8n_data
   postgres_data:
+    external: true
     name: academic_postgres_data
-
+  academic_shared_data:
+  
 networks:
   academic_net:
     name: academic_network

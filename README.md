@@ -1,6 +1,6 @@
-# 🎓 Automatización Académica con n8n + Docker
+# 🎓 automatizacion Académica con n8n + Docker
 
-Sistema de automatización de procesos académicos usando n8n, PostgreSQL, Adminer y Mailhog.
+Sistema de automatizacion de procesos académicos usando n8n, PostgreSQL, Adminer y Mailhog.
 Automatiza asistencia, entregas de tareas y retroalimentación con 5 workflows y 15 tipos de nodos distintos.
 
 ---
@@ -407,4 +407,4 @@ docker compose logs -f           # todos los servicios
 
 ---
 
-*Proyecto generado para demostración de Automatización Académica con n8n 1.x + Docker*
+*Proyecto generado para demostración de automatizacion Académica con n8n 1.x + Docker*

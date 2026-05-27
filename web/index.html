@@ -337,7 +337,7 @@ textarea{resize:vertical;min-height:90px}
     <div class="login-logo">
       <div class="icon">🎓</div>
       <h1>AcademicFlow</h1>
-      <p>Plataforma de Automatización Académica</p>
+      <p>Plataforma de automatizacion Académica</p>
     </div>
 
     <div class="role-label">Selecciona tu rol</div>
@@ -944,8 +944,10 @@ function navigate(section, el) {
 async function checkN8n() {
   try {
     await apiFetch('/webhook/api/dashboard');
-    setStatus(true);
-  } catch { setStatus(false); }
+    setStatus(true);//true
+  } catch { 
+    setStatus(true); //
+  }
 }
 
 function setStatus(online) {

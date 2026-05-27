@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  init.sql — Esquema de base de datos para Automatización Académica
+--  init.sql — Esquema de base de datos para automatizacion Académica
 --
 --  Este archivo se ejecuta AUTOMÁTICAMENTE en el primer arranque de
 --  PostgreSQL (montado en /docker-entrypoint-initdb.d/).
@@ -136,7 +136,7 @@ ON CONFLICT (student_id, course_id, date) DO NOTHING;
 
 -- Entregas de muestra
 INSERT INTO task_submissions (student_id, student_name, task_id, task_name, submission_date, deadline, status, file_name, file_extension, is_late) VALUES
-  ('STU001', 'María García',    'TASK01', 'Proyecto Final Fase 1', '2024-01-14 23:00:00', '2024-01-15 23:59:00', 'on_time',       'tarea1_maria',    'pdf',  FALSE),
+  ('STU001', '',    'TASK01', 'Proyecto Final Fase 1', '2024-01-14 23:00:00', '2024-01-15 23:59:00', 'on_time',       'tarea1_maria',    'pdf',  FALSE),
   ('STU002', 'Carlos López',   'TASK01', 'Proyecto Final Fase 1', '2024-01-16 10:30:00', '2024-01-15 23:59:00', 'late',          'tarea1_carlos',   'pdf',  TRUE),
   ('STU003', 'Ana Martínez',   'TASK01', 'Proyecto Final Fase 1', '2024-01-15 20:00:00', '2024-01-15 23:59:00', 'on_time',       'tarea1_ana',      'docx', FALSE),
   ('STU004', 'Pedro Rodríguez','TASK01', 'Proyecto Final Fase 1', '2024-01-15 22:45:00', '2024-01-15 23:59:00', 'on_time',       'tarea1_pedro',    'pdf',  FALSE),
@@ -207,7 +207,7 @@ ORDER BY course_id, task_id;
 -- Confirmar creación exitosa
 DO $$
 BEGIN
-    RAISE NOTICE '✅ Schema de Automatización Académica creado correctamente.';
+    RAISE NOTICE '✅ Schema de automatizacion Académica creado correctamente.';
     RAISE NOTICE '   Tablas: attendance, task_submissions, feedback, reports, error_logs, notifications_log';
     RAISE NOTICE '   Vistas: vw_attendance_summary, vw_task_summary, vw_grade_summary';
 END $$;
