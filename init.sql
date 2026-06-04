@@ -116,9 +116,32 @@ CREATE TABLE IF NOT EXISTS notifications_log (
 CREATE INDEX IF NOT EXISTS idx_notif_student ON notifications_log (student_id);
 CREATE INDEX IF NOT EXISTS idx_notif_type    ON notifications_log (notification_type);
 
+-- ─── 7. Tabla de Tareas (habilitadas por el profesor) ────────────────────────
+CREATE TABLE IF NOT EXISTS tasks (
+    id            SERIAL PRIMARY KEY,
+    task_id       VARCHAR(30)  NOT NULL UNIQUE,
+    task_name     VARCHAR(200) NOT NULL,
+    course_id     VARCHAR(30)  NOT NULL,
+    deadline      TIMESTAMP    NOT NULL,
+    allowed_exts  TEXT         NOT NULL DEFAULT 'pdf,docx,xlsx,zip,py,java,cpp,txt',
+    is_open       BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_by    VARCHAR(120),
+    created_at    TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_course ON tasks (course_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_open   ON tasks (is_open);
+
 -- ═══════════════════════════════════════════════════════════════════════════
 --  Datos de prueba / seed data
 -- ═══════════════════════════════════════════════════════════════════════════
+
+-- Tareas de muestra (habilitadas por el profesor)
+INSERT INTO tasks (task_id, task_name, course_id, deadline, allowed_exts, is_open, created_by) VALUES
+  ('TASK01', 'Proyecto Final Fase 1', 'CS101', '2025-12-15 23:59:00', 'pdf,docx', TRUE,  'PROF01'),
+  ('TASK02', 'Análisis de Datos',     'CS102', '2025-12-22 23:59:00', 'xlsx,pdf', TRUE,  'PROF01'),
+  ('TASK03', 'Laboratorio de Redes',  'CS103', '2026-01-10 23:59:00', 'pdf,zip',  TRUE,  'PROF02')
+ON CONFLICT DO NOTHING;
 
 -- Asistencia de muestra (espejo del CSV de prueba)
 INSERT INTO attendance (student_id, student_name, course_id, date, status) VALUES

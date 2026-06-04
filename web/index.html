@@ -393,6 +393,9 @@ textarea{resize:vertical;min-height:90px}
       <div class="nav-item" data-section="entregas" onclick="navigate('entregas',this)">
         <span class="nav-icon">📁</span> Entregas
       </div>
+      <div class="nav-item" data-section="tareas" onclick="navigate('tareas',this)">
+        <span class="nav-icon">📝</span> Tareas
+      </div>
       <div class="nav-item" data-section="calificaciones" onclick="navigate('calificaciones',this)">
         <span class="nav-icon">⭐</span> Calificaciones
       </div>
@@ -555,6 +558,63 @@ textarea{resize:vertical;min-height:90px}
         <div class="alert alert-info">
           <span>💡</span>
           <div>Para enviar una nueva entrega usa el <strong>Portal Estudiante</strong> (selecciona rol Estudiante al ingresar) o el <strong>Tester n8n</strong>.</div>
+        </div>
+      </div>
+
+      <!-- ── Tareas ────────────────────────────────────────────────────── -->
+      <div class="section-page" id="sec-tareas">
+        <div class="page-title">
+          <h2>📝 Gestión de Tareas</h2>
+          <p>Crea y habilita tareas para que los estudiantes puedan seleccionarlas y hacer sus entregas</p>
+        </div>
+
+        <div class="form-card">
+          <h3>➕ Crear / Actualizar Tarea</h3>
+          <form onsubmit="createTask(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>ID de Tarea *</label>
+                <input id="new-task-id" type="text" placeholder="TASK04" required>
+              </div>
+              <div class="form-group">
+                <label>Nombre de la Tarea *</label>
+                <input id="new-task-name" type="text" placeholder="Proyecto Final Fase 2" required>
+              </div>
+              <div class="form-group">
+                <label>ID del Curso *</label>
+                <input id="new-task-course" type="text" placeholder="CS101" required>
+              </div>
+              <div class="form-group">
+                <label>Fecha Límite de Entrega *</label>
+                <input id="new-task-deadline" type="datetime-local" required>
+              </div>
+              <div class="form-group full-width">
+                <label>Formatos Permitidos</label>
+                <input id="new-task-exts" type="text" value="pdf,docx,xlsx,zip,py,java,cpp,txt" placeholder="pdf,docx,zip">
+                <span style="font-size:11px;color:var(--text-3);margin-top:2px;display:block">Separados por coma. Ej: pdf,docx,zip</span>
+              </div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:10px">
+              <button type="submit" class="btn btn-success" id="btn-create-task">
+                <span>✅</span> Habilitar Tarea
+              </button>
+              <button type="button" class="btn btn-outline" onclick="fillTaskFormDemo()">🎲 Demo</button>
+            </div>
+          </form>
+          <div class="response-box" id="task-form-response"></div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-hdr">
+            <h3>Tareas Registradas</h3>
+            <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="loadTasks()">↻ Actualizar</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Nombre</th><th>Curso</th><th>Fecha Límite</th><th>Formatos</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="tasks-tbody">
+              <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⏳</div><p>Cargando tareas…</p></div></td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -746,18 +806,22 @@ textarea{resize:vertical;min-height:90px}
               <label>Tu Nombre Completo *</label>
               <input id="stu-name-field" type="text" placeholder="María García" required>
             </div>
-            <div class="form-group">
-              <label>ID de la Tarea *</label>
-              <input id="task-id-field" type="text" placeholder="TASK01" required>
+            <div class="form-group full-width">
+              <label>Tarea Disponible *</label>
+              <select id="task-selector" onchange="onTaskSelect(this)" required style="font-size:14px;padding:10px 12px">
+                <option value="">-- Selecciona una tarea --</option>
+              </select>
+              <div id="task-selector-info" style="display:none;margin-top:8px;padding:10px 12px;background:var(--primary-light);border-radius:var(--radius-sm);font-size:13px;color:#1e40af">
+                <span id="task-selector-detail"></span>
+              </div>
+              <div id="task-selector-empty" style="display:none;margin-top:8px;padding:10px 12px;background:var(--warning-light);border-radius:var(--radius-sm);font-size:13px;color:#92400e">
+                ⚠️ El profesor no ha habilitado ninguna tarea disponible en este momento.
+              </div>
             </div>
-            <div class="form-group">
-              <label>Nombre de la Tarea *</label>
-              <input id="task-name-field" type="text" placeholder="Proyecto Final Fase 1" required>
-            </div>
-            <div class="form-group">
-              <label>Fecha Límite de Entrega *</label>
-              <input id="task-deadline" type="datetime-local" required>
-            </div>
+            <!-- Campos ocultos: se rellenan automáticamente al seleccionar la tarea -->
+            <input type="hidden" id="task-id-field">
+            <input type="hidden" id="task-name-field">
+            <input type="hidden" id="task-deadline">
             <div class="form-group">
               <label>Tu Email (para notificaciones)</label>
               <input id="task-email" type="email" placeholder="tu@correo.com">
@@ -946,9 +1010,7 @@ function doLogin() {
     document.getElementById('stu-id-field').value = id;
     document.getElementById('stu-name-field').value = name;
     showScreen('screen-estudiante');
-    const t = new Date(); t.setDate(t.getDate()+1); t.setHours(23,59);
-    document.getElementById('task-deadline').value = t.toISOString().slice(0,16);
-    // Auto-load student data
+    loadAvailableTasks();
     loadGrades(id);
     loadStudentSubmissions(id);
   }
@@ -971,7 +1033,8 @@ function showScreen(id) {
 // ═══════════════════════════════════════════════════════════════════════════
 const sectionLabels = {
   overview:'Resumen General', asistencia:'Asistencia CSV', entregas:'Entregas',
-  calificaciones:'Calificaciones', reportes:'Reportes', errores:'Errores', tester:'Tester n8n'
+  tareas:'Gestión de Tareas', calificaciones:'Calificaciones',
+  reportes:'Reportes', errores:'Errores', tester:'Tester n8n'
 };
 
 function navigate(section, el) {
@@ -981,9 +1044,10 @@ function navigate(section, el) {
   document.getElementById('sec-' + section).classList.add('active');
   document.getElementById('breadcrumb-current').textContent = sectionLabels[section];
   if (section === 'entregas') loadSubmissions();
+  if (section === 'tareas')   loadTasks();
   if (section === 'reportes') loadReports();
-  if (section === 'errores') loadErrors();
-  if (section === 'tester') updateTestBody();
+  if (section === 'errores')  loadErrors();
+  if (section === 'tester')   updateTestBody();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1434,10 +1498,13 @@ function stuTab(tab, el) {
 function fillTaskDemo() {
   document.getElementById('stu-id-field').value   = S.user.id || 'STU001';
   document.getElementById('stu-name-field').value = S.user.name || 'Estudiante Demo';
-  document.getElementById('task-id-field').value  = 'TASK03';
-  document.getElementById('task-name-field').value= 'Laboratorio de Redes';
-  document.getElementById('task-filename').value  = 'lab_redes_demo';
-  document.getElementById('task-ext').value       = 'pdf';
+  // Auto-select the first available task if there is one
+  if (_availableTasks.length) {
+    const sel = document.getElementById('task-selector');
+    sel.value = _availableTasks[0].task_id;
+    onTaskSelect(sel);
+  }
+  document.getElementById('task-filename').value = 'tarea_demo';
 }
 
 // ── Student file helpers ─────────────────────────────────────────────────────
@@ -1472,6 +1539,9 @@ function clearStudentFile() {
 
 async function submitTask(e) {
   e.preventDefault();
+  const taskId = document.getElementById('task-id-field').value;
+  if (!taskId) { toast('Selecciona una tarea de la lista antes de enviar', 'warning'); return; }
+
   const btn = document.getElementById('btn-task-submit');
   btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Enviando...';
 
@@ -1573,6 +1643,174 @@ async function loadStudentSubmissions(studentId) {
     </tr>`).join('');
   } catch (e) {
     tb.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">&#128308;</div><p>Error: ${e.message}</p></div></td></tr>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  GESTIÓN DE TAREAS (profesor)
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadTasks() {
+  const tb = document.getElementById('tasks-tbody');
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⏳</div><p>Cargando…</p></div></td></tr>';
+  try {
+    const tasks = await dbFetch('/tasks');
+    if (!tasks.length) {
+      tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📝</div><p>Sin tareas. Crea la primera usando el formulario de arriba.</p></div></td></tr>';
+      return;
+    }
+    tb.innerHTML = tasks.map(t => {
+      const dl = t.deadline ? t.deadline.replace('T',' ').slice(0,16) : '—';
+      return `<tr>
+        <td><code style="font-size:11px;background:#f1f5f9;padding:1px 5px;border-radius:3px">${t.task_id}</code></td>
+        <td><strong>${t.task_name}</strong></td>
+        <td>${t.course_id}</td>
+        <td style="font-size:12px">${dl}</td>
+        <td style="font-size:12px">${t.allowed_exts||'—'}</td>
+        <td><span class="pill ${t.is_open ? 'pill-green' : 'pill-gray'}">${t.is_open ? '🟢 Abierta' : '⛔ Cerrada'}</span></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 10px"
+                  onclick="toggleTask('${t.task_id}',${!t.is_open})">
+            ${t.is_open ? 'Cerrar' : 'Abrir'}
+          </button>
+          <button class="btn btn-danger" style="font-size:11px;padding:4px 8px;margin-left:4px"
+                  onclick="deleteTask('${t.task_id}')">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔴</div><p>Error: ${e.message}</p></div></td></tr>`;
+  }
+}
+
+async function createTask(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-create-task');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Guardando...';
+  const payload = {
+    task_id:      document.getElementById('new-task-id').value.trim().toUpperCase(),
+    task_name:    document.getElementById('new-task-name').value.trim(),
+    course_id:    document.getElementById('new-task-course').value.trim().toUpperCase(),
+    deadline:     document.getElementById('new-task-deadline').value,
+    allowed_exts: document.getElementById('new-task-exts').value.trim(),
+    created_by:   S.user.id,
+  };
+  try {
+    const res = await dbFetch('/tasks', { method: 'POST', body: JSON.stringify(payload) });
+    const box = document.getElementById('task-form-response');
+    box.style.display = 'block';
+    box.textContent = JSON.stringify(res, null, 2);
+    if (res.success) {
+      toast('Tarea "' + payload.task_id + '" habilitada correctamente', 'success');
+      e.target.reset();
+      loadTasks();
+    } else {
+      toast('Error: ' + (res.error || 'Desconocido'), 'error');
+    }
+  } catch (ex) {
+    toast('Error al crear tarea: ' + ex.message, 'error');
+    const box = document.getElementById('task-form-response');
+    box.style.display = 'block';
+    box.textContent = '// ERROR: ' + ex.message;
+  }
+  btn.disabled = false; btn.innerHTML = '<span>✅</span> Habilitar Tarea';
+}
+
+async function toggleTask(taskId, newState) {
+  try {
+    await dbFetch('/tasks/' + taskId, { method: 'PATCH', body: JSON.stringify({ is_open: newState }) });
+    toast('Tarea ' + taskId + (newState ? ' abierta' : ' cerrada'), 'success');
+    loadTasks();
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+async function deleteTask(taskId) {
+  if (!confirm('¿Eliminar la tarea ' + taskId + '?\nEsta acción no se puede deshacer.')) return;
+  try {
+    await dbFetch('/tasks/' + taskId, { method: 'DELETE' });
+    toast('Tarea ' + taskId + ' eliminada', 'success');
+    loadTasks();
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+function fillTaskFormDemo() {
+  const d = new Date(); d.setDate(d.getDate() + 7); d.setHours(23, 59);
+  document.getElementById('new-task-id').value       = 'TASK0' + (Math.floor(Math.random()*90)+10);
+  document.getElementById('new-task-name').value     = 'Laboratorio de Programación';
+  document.getElementById('new-task-course').value   = 'CS101';
+  document.getElementById('new-task-deadline').value = d.toISOString().slice(0,16);
+  document.getElementById('new-task-exts').value     = 'pdf,py,zip';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TAREAS DISPONIBLES (estudiante)
+// ═══════════════════════════════════════════════════════════════════════════
+let _availableTasks = [];
+
+async function loadAvailableTasks() {
+  const sel      = document.getElementById('task-selector');
+  const emptyDiv = document.getElementById('task-selector-empty');
+  const infoDiv  = document.getElementById('task-selector-info');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Cargando tareas disponibles…</option>';
+  if (emptyDiv) emptyDiv.style.display = 'none';
+  if (infoDiv)  infoDiv.style.display  = 'none';
+  try {
+    const tasks = await dbFetch('/tasks?open=true');
+    _availableTasks = tasks;
+    if (!tasks.length) {
+      sel.innerHTML = '<option value="">-- Sin tareas disponibles --</option>';
+      sel.required  = false;
+      if (emptyDiv) emptyDiv.style.display = '';
+      return;
+    }
+    sel.innerHTML = '<option value="">-- Selecciona una tarea --</option>' +
+      tasks.map(t => {
+        const dl = t.deadline ? t.deadline.replace('T',' ').slice(0,16) : '—';
+        return `<option value="${t.task_id}">${t.task_name} | Curso: ${t.course_id} | Límite: ${dl}</option>`;
+      }).join('');
+    sel.required = true;
+  } catch (e) {
+    sel.innerHTML = '<option value="">-- Error al cargar tareas --</option>';
+    sel.required  = false;
+    toast('No se pudieron cargar las tareas disponibles', 'warning');
+  }
+}
+
+function onTaskSelect(sel) {
+  const taskId  = sel.value;
+  const infoDiv = document.getElementById('task-selector-info');
+  const detail  = document.getElementById('task-selector-detail');
+  const task    = _availableTasks.find(t => t.task_id === taskId);
+
+  document.getElementById('task-id-field').value   = taskId;
+  document.getElementById('task-name-field').value  = task ? task.task_name : '';
+  document.getElementById('task-deadline').value    = task ? (task.deadline || '') : '';
+
+  if (task) {
+    const dl = task.deadline ? task.deadline.replace('T',' ').slice(0,16) : '—';
+    detail.innerHTML = `📝 <strong>${task.task_name}</strong> &nbsp;·&nbsp; Curso: <strong>${task.course_id}</strong> &nbsp;·&nbsp; Plazo: <strong>${dl}</strong> &nbsp;·&nbsp; Formatos: <code>${task.allowed_exts}</code>`;
+    if (infoDiv) infoDiv.style.display = '';
+    // Disable file type options not in allowed_exts
+    const allowed = (task.allowed_exts || '').split(',').map(x => x.trim().toLowerCase());
+    const extSel  = document.getElementById('task-ext');
+    for (const opt of extSel.options) {
+      if (opt.value && !allowed.includes(opt.value)) {
+        opt.disabled = true; opt.style.color = '#ccc';
+      } else {
+        opt.disabled = false; opt.style.color = '';
+      }
+    }
+    // Reset extension selection if currently disabled
+    if (extSel.value && !allowed.includes(extSel.value)) extSel.value = '';
+  } else {
+    if (infoDiv) infoDiv.style.display = 'none';
+    const extSel = document.getElementById('task-ext');
+    for (const opt of extSel.options) { opt.disabled = false; opt.style.color = ''; }
   }
 }
 

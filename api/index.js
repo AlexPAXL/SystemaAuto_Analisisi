@@ -1,7 +1,6 @@
 const express = require('express');
 const { Pool }  = require('pg');
 const multer    = require('multer');
-const path      = require('path');
 const fs        = require('fs');
 const cors      = require('cors');
 
@@ -21,6 +20,25 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => console.error('PG pool error:', err.message));
+
+// Ensure tasks table exists (safe for DBs that pre-date this schema addition)
+pool.connect().then(client => {
+  return client.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id            SERIAL PRIMARY KEY,
+      task_id       VARCHAR(30)  NOT NULL UNIQUE,
+      task_name     VARCHAR(200) NOT NULL,
+      course_id     VARCHAR(30)  NOT NULL,
+      deadline      TIMESTAMP    NOT NULL,
+      allowed_exts  TEXT         NOT NULL DEFAULT 'pdf,docx,xlsx,zip,py,java,cpp,txt',
+      is_open       BOOLEAN      NOT NULL DEFAULT TRUE,
+      created_by    VARCHAR(120),
+      created_at    TIMESTAMP    NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_tasks_course ON tasks (course_id);
+    CREATE INDEX IF NOT EXISTS idx_tasks_open   ON tasks (is_open);
+  `).then(() => console.log('tasks table ready')).finally(() => client.release());
+}).catch(e => console.error('DB startup check:', e.message));
 
 // ── File upload (multer) ─────────────────────────────────────────────────────
 const UPLOAD_DIR = '/data/uploads';
@@ -301,6 +319,80 @@ app.get('/reports', async (_req, res) => {
       FROM reports
       ORDER BY generated_at DESC LIMIT 50`);
     res.json(r.rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+//  TASKS (definidas por el profesor, seleccionadas por estudiantes)
+// ════════════════════════════════════════════════════════════════════════════
+
+// GET /tasks — list all tasks; ?open=true to filter only open ones
+app.get('/tasks', async (req, res) => {
+  const { open, course_id } = req.query;
+  try {
+    const conditions = [];
+    const params     = [];
+    if (open === 'true' || open === '1') conditions.push('is_open = TRUE');
+    if (course_id) { params.push(course_id); conditions.push(`course_id = $${params.length}`); }
+    const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+    const r = await pool.query(
+      `SELECT task_id, task_name, course_id,
+              TO_CHAR(deadline, 'YYYY-MM-DD"T"HH24:MI:SS') AS deadline,
+              allowed_exts, is_open, created_by,
+              TO_CHAR(created_at,'YYYY-MM-DD HH24:MI') AS created_at
+       FROM tasks${where}
+       ORDER BY deadline ASC`,
+      params);
+    res.json(r.rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /tasks — create or upsert a task (professor)
+app.post('/tasks', async (req, res) => {
+  const { task_id, task_name, course_id, deadline, allowed_exts, created_by } = req.body;
+  if (!task_id || !task_name || !course_id || !deadline)
+    return res.status(400).json({ error: 'task_id, task_name, course_id y deadline son requeridos' });
+  try {
+    const r = await pool.query(
+      `INSERT INTO tasks (task_id, task_name, course_id, deadline, allowed_exts, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (task_id) DO UPDATE
+         SET task_name=$2, course_id=$3, deadline=$4, allowed_exts=$5, created_by=$6
+       RETURNING *`,
+      [task_id, task_name, course_id, deadline,
+       allowed_exts || 'pdf,docx,xlsx,zip,py,java,cpp,txt', created_by || '']);
+    res.json({ success: true, data: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PATCH /tasks/:task_id — toggle is_open (open/close the task)
+app.patch('/tasks/:task_id', async (req, res) => {
+  const { is_open } = req.body;
+  if (typeof is_open === 'undefined')
+    return res.status(400).json({ error: 'is_open requerido' });
+  try {
+    const r = await pool.query(
+      'UPDATE tasks SET is_open=$1 WHERE task_id=$2 RETURNING *',
+      [is_open, req.params.task_id]);
+    if (!r.rowCount) return res.status(404).json({ error: 'Tarea no encontrada' });
+    res.json({ success: true, data: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /tasks/:task_id
+app.delete('/tasks/:task_id', async (req, res) => {
+  try {
+    const r = await pool.query('DELETE FROM tasks WHERE task_id=$1', [req.params.task_id]);
+    if (!r.rowCount) return res.status(404).json({ error: 'Tarea no encontrada' });
+    res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
