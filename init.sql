@@ -136,7 +136,7 @@ ON CONFLICT (student_id, course_id, date) DO NOTHING;
 
 -- Entregas de muestra
 INSERT INTO task_submissions (student_id, student_name, task_id, task_name, submission_date, deadline, status, file_name, file_extension, is_late) VALUES
-  ('STU001', '',    'TASK01', 'Proyecto Final Fase 1', '2024-01-14 23:00:00', '2024-01-15 23:59:00', 'on_time',       'tarea1_maria',    'pdf',  FALSE),
+  ('STU001', 'Ana Maria',    'TASK01', 'Proyecto Final Fase 1', '2024-01-14 23:00:00', '2024-01-15 23:59:00', 'on_time',       'tarea1_maria',    'pdf',  FALSE),
   ('STU002', 'Carlos López',   'TASK01', 'Proyecto Final Fase 1', '2024-01-16 10:30:00', '2024-01-15 23:59:00', 'late',          'tarea1_carlos',   'pdf',  TRUE),
   ('STU003', 'Ana Martínez',   'TASK01', 'Proyecto Final Fase 1', '2024-01-15 20:00:00', '2024-01-15 23:59:00', 'on_time',       'tarea1_ana',      'docx', FALSE),
   ('STU004', 'Pedro Rodríguez','TASK01', 'Proyecto Final Fase 1', '2024-01-15 22:45:00', '2024-01-15 23:59:00', 'on_time',       'tarea1_pedro',    'pdf',  FALSE),
