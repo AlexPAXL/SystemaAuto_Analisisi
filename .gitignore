@@ -1,0 +1,182 @@
+# ═══════════════════════════════════════════════════════════════
+#  .gitignore — AcademicFlow
+#  Sistema de Automatización Académica (n8n + Docker + PostgreSQL)
+#  Universidad Mariano Gálvez — Campus Cobán
+# ═══════════════════════════════════════════════════════════════
+
+
+# ── SECRETOS Y VARIABLES DE ENTORNO ────────────────────────────
+# NUNCA subir credenciales al repositorio
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+*.env
+
+# Sí subir la plantilla pública (sin valores reales)
+!.env.example
+
+
+# ── DOCKER ─────────────────────────────────────────────────────
+# Override de Compose para entornos locales
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Archivos temporales de Docker
+.dockerignore.local
+
+
+# ── DATOS GENERADOS POR n8n ─────────────────────────────────────
+# Reportes HTML generados automáticamente
+shared/output/
+shared/input/uploads/
+
+# Conservar la estructura de carpetas vacías
+!shared/output/.gitkeep
+!shared/input/.gitkeep
+!shared/input/submissions/.gitkeep
+
+
+# ── BASE DE DATOS ───────────────────────────────────────────────
+# Backups y dumps de PostgreSQL
+*.sql.bak
+*.dump
+backups/
+backup_*.sql
+
+# Datos exportados
+exports/
+*.csv.bak
+
+
+# ── LOGS ────────────────────────────────────────────────────────
+*.log
+*.log.*
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+# ── MAILHOG ─────────────────────────────────────────────────────
+# Archivo de autenticación (contiene contraseñas)
+mailhog.auth
+
+
+# ── SISTEMA OPERATIVO — WINDOWS ─────────────────────────────────
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+
+# ── SISTEMA OPERATIVO — MACOS ───────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+
+# ── SISTEMA OPERATIVO — LINUX ───────────────────────────────────
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+
+# ── EDITORES E IDEs ─────────────────────────────────────────────
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# JetBrains (IntelliJ, WebStorm, PyCharm)
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+
+# Emacs
+\#*\#
+.\#*
+
+
+# ── NODE.JS (scripts utilitarios) ───────────────────────────────
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+.npm
+.yarn-integrity
+.claude/
+
+
+# ── PYTHON (scripts de generación) ──────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+
+# ── ARCHIVOS TEMPORALES GENERALES ───────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+*.cache
+.cache/
+tmp/
+temp/
+
+
+# ── CERTIFICADOS Y CLAVES SSL ───────────────────────────────────
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+ssl/
+certs/
+!certs/.gitkeep
+
+
+# ── WORKFLOWS n8n (exportados) ──────────────────────────────────
+# Los JSONs de workflows SÍ se versionan — no ignorar
+# Solo ignorar backups de workflows
+workflows/backups/
+workflows/*.bak.json
