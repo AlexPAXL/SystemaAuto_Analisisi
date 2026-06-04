@@ -491,8 +491,8 @@ textarea{resize:vertical;min-height:90px}
 
           <div class="upload-area" id="upload-area"
                onclick="document.getElementById('csv-input').click()"
-               ondragover="handleDragOver(event)"
-               ondragleave="handleDragLeave(event)"
+               ondragover="handleDragOver(event,'upload-area')"
+               ondragleave="handleDragLeave('upload-area')"
                ondrop="handleDrop(event)">
             <span class="upload-icon">📂</span>
             <p><strong>Haz clic</strong> o arrastra tu CSV aquí</p>
@@ -720,8 +720,9 @@ textarea{resize:vertical;min-height:90px}
   </div>
 
   <div class="stu-tabs">
-    <div class="stu-tab active" onclick="stuTab('enviar',this)">📤 Enviar Tarea</div>
-    <div class="stu-tab" onclick="stuTab('calificaciones',this)">⭐ Mis Calificaciones</div>
+    <div class="stu-tab active" onclick="stuTab('enviar',this)">Enviar Tarea</div>
+    <div class="stu-tab" onclick="stuTab('calificaciones',this)">Mis Calificaciones</div>
+    <div class="stu-tab" onclick="stuTab('entregas',this)">Mis Entregas</div>
   </div>
 
   <div class="stu-content">
@@ -769,23 +770,42 @@ textarea{resize:vertical;min-height:90px}
               <label>Tipo de Archivo *</label>
               <select id="task-ext" required>
                 <option value="">-- Selecciona --</option>
-                <option value="pdf">📄 PDF</option>
-                <option value="docx">📝 Word (DOCX)</option>
-                <option value="xlsx">📊 Excel (XLSX)</option>
-                <option value="py">🐍 Python (.py)</option>
-                <option value="java">☕ Java (.java)</option>
-                <option value="cpp">⚡ C++ (.cpp)</option>
-                <option value="zip">🗜️ ZIP</option>
-                <option value="txt">📃 Texto (.txt)</option>
+                <option value="pdf">PDF</option>
+                <option value="docx">Word (DOCX)</option>
+                <option value="xlsx">Excel (XLSX)</option>
+                <option value="py">Python (.py)</option>
+                <option value="java">Java (.java)</option>
+                <option value="cpp">C++ (.cpp)</option>
+                <option value="zip">ZIP</option>
+                <option value="txt">Texto (.txt)</option>
               </select>
+            </div>
+            <div class="form-group full-width">
+              <label>Archivo a subir (opcional)</label>
+              <div class="upload-area" id="stu-upload-area" style="padding:18px"
+                   onclick="document.getElementById('stu-file-input').click()"
+                   ondragover="handleDragOver(event,'stu-upload-area')"
+                   ondragleave="handleDragLeave('stu-upload-area')"
+                   ondrop="handleStudentDrop(event)">
+                <span class="upload-icon" style="font-size:24px">&#128206;</span>
+                <p><strong>Adjuntar archivo</strong> o arrastrarlo aqui</p>
+                <p style="font-size:11px;margin-top:2px">Max 20 MB</p>
+              </div>
+              <input type="file" id="stu-file-input" style="display:none" onchange="handleStudentFile(event)">
+              <div id="stu-file-preview" style="display:none" class="file-preview">
+                <span class="file-icon">&#128196;</span>
+                <span class="file-name" id="stu-file-name"></span>
+                <span class="file-size" id="stu-file-size"></span>
+                <button class="remove-btn" type="button" onclick="clearStudentFile()">x</button>
+              </div>
             </div>
           </div>
 
           <div style="margin-top:18px;display:flex;gap:10px">
             <button type="submit" class="btn btn-primary" id="btn-task-submit">
-              <span>📤</span> Enviar Tarea
+              <span>&#128228;</span> Enviar Tarea
             </button>
-            <button type="button" class="btn btn-outline" onclick="fillTaskDemo()">🎲 Datos de ejemplo</button>
+            <button type="button" class="btn btn-outline" onclick="fillTaskDemo()">Datos de ejemplo</button>
           </div>
         </form>
         <div class="response-box" id="task-response"></div>
@@ -795,25 +815,34 @@ textarea{resize:vertical;min-height:90px}
     <!-- Tab: Mis Calificaciones -->
     <div class="stu-section" id="stu-sec-calificaciones">
       <div class="page-title" style="margin-top:8px">
-        <h2>⭐ Mis Calificaciones</h2>
-        <p>Consulta las retroalimentaciones registradas en el sistema</p>
+        <h2>Mis Calificaciones</h2>
+        <p>Retroalimentaciones y notas registradas en el sistema para tu ID</p>
       </div>
-
-      <div class="form-card" style="padding:18px">
-        <div style="display:flex;gap:10px;align-items:flex-end">
-          <div class="form-group" style="flex:1;margin:0">
-            <label>Ingresa tu ID de estudiante</label>
-            <input id="lookup-id" type="text" placeholder="STU001" style="margin-top:4px">
-          </div>
-          <button class="btn btn-primary" onclick="lookupGrades()">Buscar</button>
-        </div>
-      </div>
-
       <div id="grades-list">
         <div class="empty-state" style="padding:30px;text-align:center;color:var(--text-3)">
-          <div style="font-size:40px;margin-bottom:8px">🎓</div>
-          <p>Ingresa tu ID para ver tus calificaciones</p>
+          <div style="font-size:40px;margin-bottom:8px">&#127891;</div>
+          <p>Cargando calificaciones...</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Tab: Mis Entregas -->
+    <div class="stu-section" id="stu-sec-entregas">
+      <div class="page-title" style="margin-top:8px">
+        <h2>Mis Entregas</h2>
+        <p>Historial de tareas enviadas registradas en el sistema</p>
+      </div>
+      <div class="table-card">
+        <div class="table-hdr">
+          <h3>Entregas registradas</h3>
+          <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="loadStudentSubmissions()">Actualizar</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Tarea</th><th>Archivo</th><th>Estado</th><th>Tarde?</th><th>Fecha</th></tr></thead>
+          <tbody id="stu-subs-tbody">
+            <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">&#9203;</div><p>Cargando...</p></div></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -829,13 +858,12 @@ textarea{resize:vertical;min-height:90px}
 //  CONFIGURACIÓN
 // ═══════════════════════════════════════════════════════════════════════════
 const CFG = {
-  // Cuando usas Docker (nginx proxy) → '/api/n8n'
-  // Acceso directo sin Docker        → 'http://localhost:5678'
-  N8N: window.location.port === '3000' ? '/api/n8n' : 'http://localhost:5678',
+  DB:      '/api/db',   // REST API → PostgreSQL (siempre disponible)
+  N8N:     '/api/n8n',  // n8n webhooks (para automatizaciones con email, etc.)
   TIMEOUT: 12000,
 };
 
-document.getElementById('n8n-url-display').textContent = CFG.N8N.replace('/api/n8n','localhost:5678');
+document.getElementById('n8n-url-display').textContent = 'localhost:3000 (API directa)';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  ESTADO
@@ -844,18 +872,36 @@ const S = {
   role: 'profesor', user: { name: '', id: '' },
   n8nOnline: false, statsLoaded: false,
   csvFile: null, csvContent: null,
+  stuFile: null,
 };
 
-const sampleGrades = [
-  { task_id:'TASK01', task_name:'Proyecto Final Fase 1', course_id:'CS101', grade:92.5, feedback_text:'Excelente trabajo. Documentación clara y código bien estructurado.', feedback_type:'positive' },
-  { task_id:'TASK02', task_name:'Análisis de Datos',     course_id:'CS102', grade:55.0, feedback_text:'Necesita mejorar la estructura y agregar más análisis estadístico.', feedback_type:'negative' },
-];
+// ═══════════════════════════════════════════════════════════════════════════
+//  API helpers
+// ═══════════════════════════════════════════════════════════════════════════
+async function dbFetch(path, options = {}) {
+  const ctrl  = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CFG.TIMEOUT);
+  const isFormData = options.body instanceof FormData;
+  try {
+    const res = await fetch(CFG.DB + path, {
+      headers: isFormData ? {} : { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      ...options,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error('HTTP ' + res.status + (txt ? ': ' + txt : ''));
+    }
+    return await res.json();
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  API
-// ═══════════════════════════════════════════════════════════════════════════
-async function apiFetch(path, options={}) {
-  const ctrl = new AbortController();
+async function apiFetch(path, options = {}) {
+  const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), CFG.TIMEOUT);
   try {
     const res = await fetch(CFG.N8N + path, {
@@ -866,7 +912,7 @@ async function apiFetch(path, options={}) {
     clearTimeout(timer);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.json();
-  } catch(e) {
+  } catch (e) {
     clearTimeout(timer);
     throw e;
   }
@@ -900,9 +946,11 @@ function doLogin() {
     document.getElementById('stu-id-field').value = id;
     document.getElementById('stu-name-field').value = name;
     showScreen('screen-estudiante');
-    // Set tomorrow as default deadline
     const t = new Date(); t.setDate(t.getDate()+1); t.setHours(23,59);
     document.getElementById('task-deadline').value = t.toISOString().slice(0,16);
+    // Auto-load student data
+    loadGrades(id);
+    loadStudentSubmissions(id);
   }
 }
 
@@ -939,69 +987,48 @@ function navigate(section, el) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  N8N STATUS CHECK
+//  ESTADO DE CONEXIÓN
 // ═══════════════════════════════════════════════════════════════════════════
 async function checkN8n() {
+  // Check the DB API health first, then n8n optionally
   try {
-    await apiFetch('/webhook/api/dashboard');
-    setStatus(true);//true
-  } catch { 
-    setStatus(true); //
+    await dbFetch('/health');
+    setStatus(true, 'API conectada');
+  } catch {
+    setStatus(false, 'API no disponible');
   }
 }
 
-function setStatus(online) {
+function setStatus(online, label) {
   S.n8nOnline = online;
-  const dot  = document.getElementById('status-dot');
-  const text = document.getElementById('status-text');
+  const dot   = document.getElementById('status-dot');
+  const text  = document.getElementById('status-text');
   const badge = document.getElementById('demo-indicator');
-  if (online) {
-    dot.className = 'status-dot online';
-    text.textContent = 'n8n conectado';
-    badge.style.display = 'none';
-  } else {
-    dot.className = 'status-dot offline';
-    text.textContent = 'Sin conexión (demo)';
-    badge.style.display = '';
-  }
+  dot.className   = 'status-dot ' + (online ? 'online' : 'offline');
+  text.textContent = label || (online ? 'API conectada' : 'Sin conexión');
+  badge.style.display = online ? 'none' : '';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  STATS
+//  STATS — datos reales desde PostgreSQL vía API
 // ═══════════════════════════════════════════════════════════════════════════
 async function refreshStats() {
-  setStatus(false);
   try {
-    const d = await apiFetch('/webhook/api/dashboard');
-    setStatus(true);
-    renderStats(d);
-    renderRecentSubs(d.recent_submissions || []);
-    renderRecentErrors(d.recent_errors || []);
+    const [stats, recent] = await Promise.all([
+      dbFetch('/stats'),
+      dbFetch('/submissions/recent'),
+    ]);
+    setStatus(true, 'API conectada');
+    renderStats(stats);
+    renderRecentSubs(recent || []);
+    loadErrors(); // updates recent errors table too
     document.getElementById('last-updated').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es-GT');
-  } catch {
-    renderStats(getDemoStats());
-    renderRecentSubs(getDemoSubs());
-    renderRecentErrors([]);
+  } catch (e) {
+    setStatus(false, 'Error de conexion');
     document.getElementById('last-updated').textContent =
-      'Modo demo — n8n no disponible. Activa WF6 en n8n.';
+      'Error al conectar con la API: ' + e.message;
   }
-}
-
-function getDemoStats() {
-  return {
-    attendance:  { total:47, present:35, absent:8, late:4, rate:74.5 },
-    submissions: { total:32, on_time:25, late:5, missing:2 },
-    feedback:    { total:18, avg_grade:76.3, passing:14, failing:4 },
-    system:      { errors:0, reports:3, notifications:12 },
-  };
-}
-function getDemoSubs() {
-  return [
-    { student_name:'María García', task_id:'TASK01', status:'on_time', is_late:false, fecha:'2024-01-15 22:00' },
-    { student_name:'Carlos López', task_id:'TASK01', status:'late',    is_late:true,  fecha:'2024-01-16 10:30' },
-    { student_name:'Ana Martínez', task_id:'TASK02', status:'on_time', is_late:false, fecha:'2024-01-14 18:45' },
-  ];
 }
 
 function renderStats(d) {
@@ -1084,9 +1111,9 @@ function pillStatus(status, isLate) {
 // ═══════════════════════════════════════════════════════════════════════════
 //  ASISTENCIA CSV
 // ═══════════════════════════════════════════════════════════════════════════
-function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect='copy'; document.getElementById('upload-area').classList.add('drag-over'); }
-function handleDragLeave() { document.getElementById('upload-area').classList.remove('drag-over'); }
-function handleDrop(e) { e.preventDefault(); document.getElementById('upload-area').classList.remove('drag-over'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); }
+function handleDragOver(e, areaId) { e.preventDefault(); e.dataTransfer.dropEffect='copy'; document.getElementById(areaId||'upload-area').classList.add('drag-over'); }
+function handleDragLeave(areaId) { document.getElementById(areaId||'upload-area').classList.remove('drag-over'); }
+function handleDrop(e) { e.preventDefault(); handleDragLeave('upload-area'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); }
 function handleFileSelect(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
 
 function processFile(file) {
@@ -1148,55 +1175,63 @@ async function submitCSV() {
   if (!S.csvContent) return;
   const btn = document.getElementById('btn-upload');
   btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Procesando…';
+  btn.innerHTML = '<div class="spinner"></div> Procesando...';
   const prog = document.getElementById('upload-progress');
   prog.style.display = '';
-  const bar = document.getElementById('upload-bar');
+  const bar    = document.getElementById('upload-bar');
   const status = document.getElementById('upload-status');
 
-  bar.style.width='20%'; status.textContent='Codificando CSV…';
-  const csv_b64 = btoa(unescape(encodeURIComponent(S.csvContent)));
+  bar.style.width = '20%'; status.textContent = 'Analizando CSV...';
 
-  bar.style.width='50%'; status.textContent='Enviando a n8n (WF7)…';
+  // Parse CSV locally
+  const lines   = S.csvContent.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const rows    = lines.slice(1).map(line => {
+    const vals = line.split(',');
+    const obj  = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); });
+    return obj;
+  }).filter(r => r.student_id || r.student_name);
+
+  bar.style.width = '55%'; status.textContent = `Insertando ${rows.length} registros en PostgreSQL...`;
 
   try {
-    const res = await apiFetch('/webhook/upload-csv', {
-      method:'POST',
-      body: JSON.stringify({ csv_base64: csv_b64, filename: S.csvFile?.name || 'upload.csv' })
+    const res = await dbFetch('/attendance/csv', {
+      method: 'POST',
+      body:   JSON.stringify({ rows }),
     });
-    bar.style.width='100%'; status.textContent='¡Completado!';
+    bar.style.width = '100%'; status.textContent = 'Completado!';
     const box = document.getElementById('csv-response');
-    box.style.display='block';
+    box.style.display = 'block';
     box.textContent = JSON.stringify(res, null, 2);
-    if (res.ok !== false) {
-      toast(`✅ ${res.inserted||res.insertCount||'?'} registros procesados`, 'success');
+    if (res.success) {
+      toast(`${res.inserted} registros insertados · ${res.skipped} omitidos`, 'success');
       refreshStats();
     } else {
-      toast('Error: ' + (res.error||'Desconocido'), 'error');
+      toast('Error: ' + (res.error || 'Desconocido'), 'error');
     }
-  } catch(e) {
-    bar.style.width='100%'; bar.style.background='var(--error)';
-    status.textContent='Error de conexión — ¿n8n activo?';
-    toast('No se pudo conectar a n8n. Activa WF7.', 'error');
+  } catch (e) {
+    bar.style.width = '100%'; bar.style.background = 'var(--error)';
+    status.textContent = 'Error: ' + e.message;
+    toast('Error al procesar CSV: ' + e.message, 'error');
     const box = document.getElementById('csv-response');
-    box.style.display='block';
-    box.textContent = '// ERROR: ' + e.message + '\n// Asegúrate de que WF7 esté activo en n8n.';
+    box.style.display = 'block';
+    box.textContent = '// ERROR: ' + e.message;
   }
   btn.disabled = false;
-  btn.innerHTML = '<span>⬆️</span> Procesar Asistencia';
+  btn.innerHTML = '<span>&#11014;&#65039;</span> Procesar Asistencia';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  ENTREGAS
+//  ENTREGAS (profesor)
 // ═══════════════════════════════════════════════════════════════════════════
 async function loadSubmissions() {
   const tb = document.getElementById('all-subs-tbody');
-  tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⏳</div><p>Consultando n8n…</p></div></td></tr>';
+  tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">&#9203;</div><p>Consultando base de datos...</p></div></td></tr>';
   try {
-    const d = await apiFetch('/webhook/api/dashboard');
-    const subs = d.recent_submissions || [];
+    const subs = await dbFetch('/submissions');
     if (!subs.length) {
-      tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📭</div><p>Sin entregas aún. Usa el Portal Estudiante o el Tester.</p></div></td></tr>';
+      tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">&#128237;</div><p>Sin entregas aun. Usa el Portal Estudiante.</p></div></td></tr>';
       return;
     }
     tb.innerHTML = subs.map(s => `<tr>
@@ -1205,11 +1240,11 @@ async function loadSubmissions() {
       <td>${s.task_id||'—'}</td>
       <td>${s.task_name||'—'}</td>
       <td>${pillStatus(s.status)}</td>
-      <td>${s.is_late?'<span class="pill pill-red">Sí</span>':'<span class="pill pill-green">No</span>'}</td>
+      <td>${s.is_late?'<span class="pill pill-red">Si</span>':'<span class="pill pill-green">No</span>'}</td>
       <td style="font-size:12px;color:var(--text-3)">${s.fecha||'—'}</td>
     </tr>`).join('');
-  } catch {
-    tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔴</div><p>No se pudo conectar a n8n. Activa WF6.</p></div></td></tr>';
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">&#128308;</div><p>Error: ${e.message}</p></div></td></tr>`;
   }
 }
 
@@ -1238,7 +1273,7 @@ function fillFeedbackDemo() {
 async function submitFeedback(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-feedback');
-  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Enviando…';
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Guardando...';
   const payload = {
     student_id:   document.getElementById('fb-student-id').value,
     student_name: document.getElementById('fb-student-name').value,
@@ -1249,24 +1284,28 @@ async function submitFeedback(e) {
     student_email:document.getElementById('fb-email').value,
   };
   try {
-    const res = await apiFetch('/webhook/feedback', { method:'POST', body: JSON.stringify(payload) });
+    // 1. Save to DB
+    const res = await dbFetch('/feedback', { method: 'POST', body: JSON.stringify(payload) });
     const box = document.getElementById('fb-response');
     box.style.display = 'block';
     box.textContent = JSON.stringify(res, null, 2);
-    const arr = Array.isArray(res) ? res[0] : res;
-    if (arr?.success !== false) {
-      toast('✅ Retroalimentación enviada. Email en Mailhog (:8025)', 'success');
+    if (res.success) {
+      toast('Calificacion guardada en la BD', 'success');
       refreshStats();
+      // 2. Try to send email via n8n (optional — won't block if n8n is down)
+      apiFetch('/webhook/feedback', { method: 'POST', body: JSON.stringify(payload) })
+        .then(() => toast('Notificacion de email enviada via n8n', 'info'))
+        .catch(() => {});
     } else {
-      toast('Error: ' + (arr?.message||'Revisa n8n'), 'error');
+      toast('Error: ' + (res.error || 'Revisa la consola'), 'error');
     }
-  } catch(e) {
-    toast('No se pudo conectar a n8n. Activa WF4.', 'error');
+  } catch (e) {
+    toast('Error al guardar: ' + e.message, 'error');
     const box = document.getElementById('fb-response');
     box.style.display = 'block';
     box.textContent = '// ERROR: ' + e.message;
   }
-  btn.disabled = false; btn.innerHTML = '<span>✉️</span> Enviar Retroalimentación';
+  btn.disabled = false; btn.innerHTML = '<span>&#9993;&#65039;</span> Enviar Retroalimentacion';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1294,16 +1333,22 @@ async function generateReport() {
 }
 
 async function loadReports() {
-  // Reports come from the dashboard stats; for list we try the API
+  const tb = document.getElementById('reports-tbody');
   try {
-    const d = await apiFetch('/webhook/api/dashboard');
-    // Reports list comes from system stats, not individual rows
-    // We'll just show a note about checking shared/output
-    document.getElementById('reports-tbody').innerHTML =
-      '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📂</div><p>Los reportes HTML se guardan en <strong>shared/output/</strong><br>Total generados: <strong>' + (d.system?.reports||0) + '</strong>. Ábrelos directamente desde el directorio.</p></div></td></tr>';
-  } catch {
-    document.getElementById('reports-tbody').innerHTML =
-      '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📂</div><p>Conecta n8n para ver el historial. Los reportes están en <strong>shared/output/</strong></p></div></td></tr>';
+    const rows = await dbFetch('/reports');
+    if (!rows.length) {
+      tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">&#128196;</div><p>Sin reportes aun. Genera el primero arriba.</p></div></td></tr>';
+      return;
+    }
+    tb.innerHTML = rows.map(r => `<tr>
+      <td>${r.report_type||'—'}</td>
+      <td><code style="font-size:11px">${r.file_path||'—'}</code></td>
+      <td>${r.records_count||0}</td>
+      <td><span class="pill ${r.status==='generated'?'pill-green':'pill-gray'}">${r.status||'—'}</span></td>
+      <td style="font-size:12px;color:var(--text-3)">${r.generated_at||'—'}</td>
+    </tr>`).join('');
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">&#128308;</div><p>Error: ${e.message}</p></div></td></tr>`;
   }
 }
 
@@ -1311,23 +1356,27 @@ async function loadReports() {
 //  ERRORES
 // ═══════════════════════════════════════════════════════════════════════════
 async function loadErrors() {
-  const tb = document.getElementById('errors-tbody');
-  tb.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">⏳</div><p>Consultando…</p></div></td></tr>';
+  const tb  = document.getElementById('errors-tbody');
+  const rte = document.getElementById('recent-errors-tbody');
+  const loading = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">&#9203;</div><p>Consultando...</p></div></td></tr>';
+  if (tb)  tb.innerHTML  = loading;
+  if (rte) rte.innerHTML = loading;
   try {
-    const d = await apiFetch('/webhook/api/dashboard');
-    const errs = d.recent_errors || [];
-    if (!errs.length) {
-      tb.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">✅</div><p>Sin errores registrados. Sistema funcionando correctamente.</p></div></td></tr>';
-    } else {
-      tb.innerHTML = errs.map(e => `<tr>
-        <td>${e.workflow_name||'—'}</td>
-        <td>${e.node_name||'—'}</td>
-        <td style="max-width:300px;font-size:12px">${e.error_message||'—'}</td>
-        <td style="font-size:11px;color:var(--text-3)">${e.created_at||'—'}</td>
-      </tr>`).join('');
-    }
-  } catch {
-    tb.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🔴</div><p>No se pudo conectar a n8n. Activa WF6.</p></div></td></tr>';
+    const errs = await dbFetch('/errors');
+    const empty = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">&#9989;</div><p>Sin errores registrados.</p></div></td></tr>';
+    const rows  = errs.length ? errs.map(e => `<tr>
+      <td>${e.workflow_name||'—'}</td>
+      <td>${e.node_name||'—'}</td>
+      <td style="max-width:300px;font-size:12px">${e.error_message||'—'}</td>
+      <td style="font-size:11px;color:var(--text-3)">${e.created_at||'—'}</td>
+    </tr>`).join('') : null;
+    if (tb)  tb.innerHTML  = rows || empty;
+    if (rte) rte.innerHTML = rows || empty;
+    renderRecentErrors(errs);
+  } catch (e) {
+    const err = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">&#128308;</div><p>Error: ${e.message}</p></div></td></tr>`;
+    if (tb)  tb.innerHTML  = err;
+    if (rte) rte.innerHTML = err;
   }
 }
 
@@ -1378,6 +1427,8 @@ function stuTab(tab, el) {
   el.classList.add('active');
   document.querySelectorAll('.stu-section').forEach(s => s.classList.remove('active'));
   document.getElementById('stu-sec-' + tab).classList.add('active');
+  if (tab === 'calificaciones') loadGrades(S.user.id);
+  if (tab === 'entregas')       loadStudentSubmissions(S.user.id);
 }
 
 function fillTaskDemo() {
@@ -1389,70 +1440,140 @@ function fillTaskDemo() {
   document.getElementById('task-ext').value       = 'pdf';
 }
 
+// ── Student file helpers ─────────────────────────────────────────────────────
+function handleStudentFile(e) {
+  const file = e.target.files[0];
+  if (file) setStudentFile(file);
+}
+function handleStudentDrop(e) {
+  e.preventDefault();
+  handleDragLeave('stu-upload-area');
+  if (e.dataTransfer.files[0]) setStudentFile(e.dataTransfer.files[0]);
+}
+function setStudentFile(file) {
+  S.stuFile = file;
+  document.getElementById('stu-upload-area').style.display  = 'none';
+  document.getElementById('stu-file-preview').style.display = 'flex';
+  document.getElementById('stu-file-name').textContent = file.name;
+  document.getElementById('stu-file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+  // Auto-fill filename & extension fields
+  const parts = file.name.split('.');
+  const ext   = parts.length > 1 ? parts.pop().toLowerCase() : '';
+  document.getElementById('task-filename').value = parts.join('.');
+  const sel = document.getElementById('task-ext');
+  for (let opt of sel.options) { if (opt.value === ext) { sel.value = ext; break; } }
+}
+function clearStudentFile() {
+  S.stuFile = null;
+  document.getElementById('stu-upload-area').style.display  = '';
+  document.getElementById('stu-file-preview').style.display = 'none';
+  document.getElementById('stu-file-input').value = '';
+}
+
 async function submitTask(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-task-submit');
-  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Enviando…';
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Enviando...';
 
   const deadline = document.getElementById('task-deadline').value;
-  const payload = {
-    student_id:      document.getElementById('stu-id-field').value,
-    student_name:    document.getElementById('stu-name-field').value,
-    task_id:         document.getElementById('task-id-field').value,
-    task_name:       document.getElementById('task-name-field').value,
-    deadline:        deadline ? new Date(deadline).toISOString() : new Date().toISOString(),
-    file_name:       document.getElementById('task-filename').value,
-    file_extension:  document.getElementById('task-ext').value,
-    student_email:   document.getElementById('task-email').value,
+  const payload  = {
+    student_id:     document.getElementById('stu-id-field').value,
+    student_name:   document.getElementById('stu-name-field').value,
+    task_id:        document.getElementById('task-id-field').value,
+    task_name:      document.getElementById('task-name-field').value,
+    deadline:       deadline ? new Date(deadline).toISOString() : new Date().toISOString(),
+    file_name:      document.getElementById('task-filename').value,
+    file_extension: document.getElementById('task-ext').value,
+    student_email:  document.getElementById('task-email').value,
   };
 
   try {
-    const res = await apiFetch('/webhook/task-submission', { method:'POST', body: JSON.stringify(payload) });
-    const box = document.getElementById('task-response');
-    box.style.display = 'block';
-    box.textContent = JSON.stringify(res, null, 2);
-    const r = Array.isArray(res) ? res[0] : res;
-    if (r?.success !== false) {
-      const isLate = r?.status === 'late';
-      toast(isLate ? '⚠️ Entrega registrada (tardía) — revisa tu email' : '✅ Tarea enviada exitosamente', isLate ? 'warning' : 'success');
-    } else {
-      toast('Error: ' + (r?.errors?.join(', ')||'Revisa los datos'), 'error');
+    // 1. Upload file if selected
+    if (S.stuFile) {
+      const fd = new FormData();
+      fd.append('file', S.stuFile);
+      const up = await dbFetch('/upload', { method: 'POST', body: fd });
+      if (up.success) payload.file_path = up.filename;
     }
-  } catch(e) {
-    toast('No se pudo conectar a n8n. Activa WF2.', 'error');
+
+    // 2. Create submission in DB
+    const res = await dbFetch('/submissions', { method: 'POST', body: JSON.stringify(payload) });
     const box = document.getElementById('task-response');
     box.style.display = 'block';
-    box.textContent = '// ERROR: ' + e.message + '\n// Activa WF2 en n8n';
+    box.textContent   = JSON.stringify(res, null, 2);
+
+    if (res.success) {
+      const isLate = res.is_late;
+      toast(isLate ? 'Entrega registrada (tardia). Revisa tu email.' : 'Tarea enviada exitosamente!', isLate ? 'warning' : 'success');
+      clearStudentFile();
+      loadStudentSubmissions(payload.student_id);
+      // Try n8n for email notification (optional)
+      apiFetch('/webhook/task-submission', { method: 'POST', body: JSON.stringify(payload) }).catch(() => {});
+    } else {
+      toast('Error: ' + (res.error || 'Revisa los datos'), 'error');
+    }
+  } catch (err) {
+    toast('Error al enviar: ' + err.message, 'error');
+    const box = document.getElementById('task-response');
+    box.style.display = 'block';
+    box.textContent   = '// ERROR: ' + err.message;
   }
 
-  btn.disabled = false; btn.innerHTML = '<span>📤</span> Enviar Tarea';
+  btn.disabled = false; btn.innerHTML = '<span>&#128228;</span> Enviar Tarea';
 }
 
-function lookupGrades() {
-  const id = document.getElementById('lookup-id').value.trim();
-  if (!id) { toast('Ingresa tu ID', 'warning'); return; }
+async function loadGrades(studentId) {
+  const id        = studentId || S.user.id;
   const container = document.getElementById('grades-list');
-  // Use sample data (real data would require a GET webhook per student)
-  const matching = sampleGrades;
-  if (!matching.length) {
-    container.innerHTML = '<div class="empty-state" style="padding:30px;text-align:center"><div style="font-size:36px;margin-bottom:8px">📭</div><p>No se encontraron calificaciones para ' + id + '</p></div>';
-    return;
-  }
-  container.innerHTML = matching.map(g => {
-    const cls = g.grade >= 80 ? 'passing' : g.grade >= 60 ? 'neutral' : 'failing';
-    const icon = g.grade >= 80 ? '🎉' : g.grade >= 60 ? '📝' : '⚠️';
-    return `<div class="grade-card ${cls}">
-      <div class="gc-top">
-        <div class="gc-score"><div class="num">${g.grade}</div><div class="denom">/100</div></div>
-        <div class="gc-info">
-          <h4>${icon} ${g.task_name}</h4>
-          <div class="meta">Curso: ${g.course_id} &nbsp;·&nbsp; Tarea: ${g.task_id}</div>
+  if (!id) return;
+  container.innerHTML = '<div class="empty-state" style="padding:30px;text-align:center"><div style="font-size:40px;margin-bottom:8px">&#9203;</div><p>Buscando calificaciones...</p></div>';
+  try {
+    const grades = await dbFetch('/feedback?student_id=' + encodeURIComponent(id));
+    if (!grades.length) {
+      container.innerHTML = '<div class="empty-state" style="padding:30px;text-align:center;color:var(--text-3)"><div style="font-size:40px;margin-bottom:8px">&#128237;</div><p>No hay calificaciones registradas para ' + id + '</p></div>';
+      return;
+    }
+    container.innerHTML = grades.map(g => {
+      const cls  = g.grade >= 80 ? 'passing' : g.grade >= 60 ? 'neutral' : 'failing';
+      const icon = g.grade >= 80 ? '&#127881;' : g.grade >= 60 ? '&#128221;' : '&#9888;&#65039;';
+      return `<div class="grade-card ${cls}">
+        <div class="gc-top">
+          <div class="gc-score"><div class="num">${g.grade}</div><div class="denom">/100</div></div>
+          <div class="gc-info">
+            <h4>${icon} Tarea ${g.task_id}</h4>
+            <div class="meta">Curso: ${g.course_id||'—'} &nbsp;·&nbsp; ${g.fecha||''}</div>
+          </div>
         </div>
-      </div>
-      <div class="feedback-text">💬 ${g.feedback_text}</div>
-    </div>`;
-  }).join('');
-  toast('Calificaciones cargadas', 'info');
+        ${g.feedback_text ? `<div class="feedback-text">&#128172; ${g.feedback_text}</div>` : ''}
+      </div>`;
+    }).join('');
+    toast('Calificaciones cargadas desde la BD', 'success');
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state" style="padding:30px;text-align:center;color:var(--text-3)"><div style="font-size:36px;margin-bottom:8px">&#128308;</div><p>Error: ${e.message}</p></div>`;
+  }
+}
+
+async function loadStudentSubmissions(studentId) {
+  const id = studentId || S.user.id;
+  const tb = document.getElementById('stu-subs-tbody');
+  if (!tb || !id) return;
+  tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">&#9203;</div><p>Cargando...</p></div></td></tr>';
+  try {
+    const subs = await dbFetch('/submissions?student_id=' + encodeURIComponent(id));
+    if (!subs.length) {
+      tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">&#128237;</div><p>Sin entregas registradas aun.</p></div></td></tr>';
+      return;
+    }
+    tb.innerHTML = subs.map(s => `<tr>
+      <td><strong>${s.task_name||s.task_id}</strong><br><small style="color:var(--text-3)">${s.task_id}</small></td>
+      <td>${s.file_name ? s.file_name + '.' + (s.file_extension||'') : '—'}</td>
+      <td>${pillStatus(s.status, s.is_late)}</td>
+      <td>${s.is_late ? '<span class="pill pill-red">Si</span>' : '<span class="pill pill-green">No</span>'}</td>
+      <td style="font-size:12px;color:var(--text-3)">${s.fecha||'—'}</td>
+    </tr>`).join('');
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">&#128308;</div><p>Error: ${e.message}</p></div></td></tr>`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
