@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:5678/webhook/api/dashboard\")",
-      "Bash(docker exec postgres_academic psql -U academic_user -d academic_db -c ' *)"
-    ]
-  }
-}
